@@ -2,7 +2,11 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.niyah
 dist/
 .next/
 *.log
+.venv/
+niyah_env/
+*.codex
 .DS_Store
