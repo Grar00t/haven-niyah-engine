@@ -1,0 +1,4 @@
+# Default reviewer for everything in this repo.
+# Order is important; the LAST matching pattern takes precedence.
+
+* @Grar00t
