@@ -8,8 +8,8 @@
  * Works with Next.js App Router, Vite+Express, or standalone Node.
  */
 
-import { NiyahEngine, NiyahMemory, globalMemory } from './niyah-engine-v3';
-import type { NiyahRequest, NiyahResponse } from './niyah-engine-v3';
+import { NiyahEngine, NiyahMemory, globalMemory } from '../engine/niyah-engine-v3';
+import type { NiyahRequest, NiyahResponse } from '../engine/niyah-engine-v3';
 
 const engine = new NiyahEngine(globalMemory);
 

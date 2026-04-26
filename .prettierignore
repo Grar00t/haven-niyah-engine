@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+*.log
+.next
+src/i18n/i18n.ts
+src/nlp/arabic-roots-expanded.ts

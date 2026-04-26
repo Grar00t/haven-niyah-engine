@@ -1,0 +1,89 @@
+{
+  "name": "haven-niyah-engine",
+  "version": "0.1.0",
+  "description": "Three-Lobe sovereign AI orchestration engine (Niyah) — Arabic-first, Ollama-local, multi-provider.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./engine": {
+      "types": "./dist/engine/niyah-engine-v3.d.ts",
+      "import": "./dist/engine/niyah-engine-v3.js"
+    },
+    "./api": {
+      "types": "./dist/api/niyah-route.d.ts",
+      "import": "./dist/api/niyah-route.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/useNiyah.d.ts",
+      "import": "./dist/hooks/useNiyah.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "react": "^19.0.0"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "ollama",
+    "arabic",
+    "niyah",
+    "sovereign",
+    "orchestration"
+  ],
+  "author": "Sulaiman Alshammari <contact@khawrizm.com>",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Grar00t/haven-niyah-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Grar00t/haven-niyah-engine/issues"
+  },
+  "homepage": "https://khawrizm.com"
+}

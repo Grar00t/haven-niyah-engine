@@ -1,12 +1,35 @@
 node_modules/
+dist/
+coverage/
+.next/
+
+# Env
 .env
 .env.local
 .env.*.local
 .env.niyah
-dist/
-.next/
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build
+*.tsbuildinfo
+.turbo/
+.vitest/
+.eslintcache
+*.tgz
+
+# Python
 .venv/
 niyah_env/
+__pycache__/
+*.pyc
+
+# Editor
 *.codex
 .DS_Store
+.idea/
+.vscode/
