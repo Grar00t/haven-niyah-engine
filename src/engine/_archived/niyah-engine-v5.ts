@@ -1,5 +1,31 @@
 /**
  * ════════════════════════════════════════════════════════════════════
+ *  ⚠️  ARCHIVED — DO NOT IMPORT
+ *
+ *  This file is kept for historical reference only. It is NOT part of
+ *  the active build:
+ *    - It is excluded from tsconfig and the published package
+ *    - No production code path imports from this file
+ *    - Compilation / lint / test do not run against it
+ *
+ *  Why archived: v3 (src/engine/niyah-engine-v3.ts) is the canonical
+ *  engine wired to the API route. v5 was an experimental rewrite that
+ *  duplicated concerns, shipped incompatible types, and dropped v3's
+ *  fallback chain and multi-provider streaming. See ARCHITECTURE.md.
+ *
+ *  Salvageable ideas to potentially port back to v3 in later work:
+ *    - CircuitBreaker with proper half-open state (Tier-3 plan T3.2)
+ *    - ResponseCache (real LRU lives in CacheAndGraphImprovements.ts)
+ *    - RAM-aware model selection (Tier-3 plan T3.4)
+ *    - Identity-guard classifier (Tier-3 plan T3.1; needs a smarter
+ *      check than substring matching)
+ *
+ *  Kept here so reviewers can read the prior approach without it
+ *  silently being importable. To remove entirely, delete this folder.
+ *
+ *  Original header preserved below.
+ * ════════════════════════════════════════════════════════════════════
+ *
  *  NIYAH ENGINE  ·  نية  ·  v5.0
  *  Sovereign Three-Lobe AI Orchestration — Advanced Edition
  *
