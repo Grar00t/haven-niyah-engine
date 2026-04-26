@@ -51,19 +51,25 @@
 
 ```bash
 # Clone
-git clone https://github.com/Grar00t/haven-sovereign.git
-cd haven-sovereign
+git clone https://github.com/Grar00t/haven-niyah-engine.git
+cd haven-niyah-engine
 
-# Install
+# Install dependencies
 npm install
 
-# Run (development)
-npm run dev
-# → http://localhost:5173
+# Type-check the engine
+npm run typecheck
 
-# Build (production)
+# Build the package (emits to ./dist)
 npm run build
+
+# Run the test suite
+npm test
 ```
+
+> Niyah Engine is a library — it does not ship its own dev server. To embed
+> it in an app, import from `haven-niyah-engine` (top-level) or
+> `haven-niyah-engine/engine` (the v3 engine class).
 
 ## 🏗️ Components
 
