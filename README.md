@@ -4,6 +4,7 @@
 
 ### Saudi Arabia's First Sovereign AI Development Environment
 
+[![CI](https://github.com/Grar00t/haven-niyah-engine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Grar00t/haven-niyah-engine/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
@@ -105,6 +106,24 @@ npm run build
 - **KhawrizmOS** — نظام تشغيل سيادي ARM64
 
 صفر تتبع. صفر سحابة. سيادة كاملة.
+
+## ✅ Tests & Coverage
+
+The test suite imports the **real** v3 engine (`src/engine/niyah-engine-v3.ts`) — not an inline mock. Run it with:
+
+```bash
+npm test
+```
+
+Honest current state (after PR #6 rewiring):
+
+| Bucket | Count | Notes |
+|---|---:|---|
+| Passing against production engine (`SensoryLobe`, `ExecutiveLobe`, `NiyahMemory`, `NiyahEngine.analyse`, model registry) | 31 | Up from **0** before the rewire |
+| `describe.skip()` with TODO referencing the upgrade-plan tier | 15 | Document features the engine does not yet expose: Arabic root tokenization (T2.5), tone/domain classifiers, flag parsing, vectorisation, parallel three-lobe `Lobe<I,O>` interface (T2.2), intent-graph wiring (T2.6), confidence calibration, OpenAI/DeepSeek/Gemini streaming (T3.3) |
+| Provider adapter coverage (`callOllama`, `callAnthropic`, `callOpenAI`, `callDeepSeek`, `callGemini`) | 0 | No mock-server harness yet; deferred |
+
+**Production-engine line coverage is currently low** and will be reported as a CI artifact once the coverage gate is wired in a follow-up. The previous claim of "102 tests across 15 suites" referred to a self-mocked test file; that file has been rewritten to test the real engine, with skipped tests (kept on disk) marking the outstanding gaps.
 
 ## 🔒 Security
 
