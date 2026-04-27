@@ -98,12 +98,24 @@ export async function POST_ask(request: Request): Promise<Response> {
   }
 }
 
-export async function GET_models(_request: Request): Promise<Response> {
+export async function GET_models(request: Request): Promise<Response> {
+  // SECURITY: Never enumerate cross-session memory keys here. The previous
+  // implementation returned globalMemory.keys() which leaked every other
+  // user's memoryKey to any caller of /models. Now we only return the
+  // models list, and (optionally) a single boolean about whether a
+  // caller-supplied memoryKey exists in their own scope.
+  const url = new URL(request.url);
+  const requestedKey = url.searchParams.get('memoryKey');
+  const ownEntryExists =
+    typeof requestedKey === 'string' && requestedKey.length > 0
+      ? !!(globalMemory as NiyahMemory).get(requestedKey)
+      : undefined;
+
   return Response.json({
     models: engine.listModels(),
     memory: {
-      keys: (globalMemory as NiyahMemory).keys(),
-      size: (globalMemory as NiyahMemory).size(),
+      // Only the caller's own scope is reported. No cross-session enumeration.
+      ownEntryExists,
     },
   });
 }
@@ -112,6 +124,9 @@ export async function GET_health(_request: Request): Promise<Response> {
   const analysis = await engine.analyse({
     messages: [{ role: 'user', content: 'ping' }],
   });
+  // Note: we deliberately do NOT report globalMemory.size() here — even an
+  // aggregate count is a tenant-cardinality oracle that lets one caller
+  // observe activity from other sessions. Health is a binary status.
   return Response.json({
     ollamaAlive: analysis.ollamaAlive,
     anthropic:   !!process.env.ANTHROPIC_API_KEY,
@@ -119,7 +134,6 @@ export async function GET_health(_request: Request): Promise<Response> {
     deepseek:    !!process.env.DEEPSEEK_API_KEY,
     gemini:      !!process.env.GEMINI_API_KEY,
     engine:      'Niyah v3.0',
-    memory:      (globalMemory as NiyahMemory).size(),
   });
 }
 

@@ -23,15 +23,56 @@
 // ─── Env ─────────────────────────────────────────────────────────────────────
 
 const ENV = {
-  OLLAMA_HOST:       process.env.OLLAMA_HOST           ?? 'http://localhost:11434',
-  OLLAMA_MODEL:      process.env.HAVEN_OLLAMA_MODEL    ?? 'qwen2.5-coder:7b',
-  ANTHROPIC_KEY:     process.env.ANTHROPIC_API_KEY     ?? '',
-  OPENAI_KEY:        process.env.OPENAI_API_KEY        ?? '',
-  DEEPSEEK_KEY:      process.env.DEEPSEEK_API_KEY      ?? '',
-  GEMINI_KEY:        process.env.GEMINI_API_KEY        ?? '',
-  NIYAH_LOG:         process.env.NIYAH_LOG             ?? 'false',
-  NIYAH_MAX_RETRIES: Number(process.env.NIYAH_MAX_RETRIES ?? '3'),
+  OLLAMA_HOST:           process.env.OLLAMA_HOST               ?? 'http://localhost:11434',
+  OLLAMA_MODEL:          process.env.HAVEN_OLLAMA_MODEL        ?? 'qwen2.5-coder:7b',
+  ANTHROPIC_KEY:         process.env.ANTHROPIC_API_KEY         ?? '',
+  OPENAI_KEY:            process.env.OPENAI_API_KEY            ?? '',
+  DEEPSEEK_KEY:          process.env.DEEPSEEK_API_KEY          ?? '',
+  GEMINI_KEY:            process.env.GEMINI_API_KEY            ?? '',
+  NIYAH_LOG:             process.env.NIYAH_LOG                 ?? 'false',
+  NIYAH_MAX_RETRIES:     Number(process.env.NIYAH_MAX_RETRIES  ?? '3'),
+  PROVIDER_TIMEOUT_MS:   Number(process.env.NIYAH_PROVIDER_TIMEOUT_MS ?? '30000'),
+  OLLAMA_TIMEOUT_MS:     Number(process.env.NIYAH_OLLAMA_TIMEOUT_MS   ?? '60000'),
 } as const;
+
+/**
+ * Typed error for provider timeouts. Catchers should branch on
+ * `err instanceof ProviderTimeoutError` rather than parsing the message.
+ */
+export class ProviderTimeoutError extends Error {
+  override readonly name = 'ProviderTimeoutError';
+  constructor(
+    public readonly provider: string,
+    public readonly timeoutMs: number,
+  ) {
+    super(`${provider} timed out after ${timeoutMs}ms`);
+  }
+}
+
+/**
+ * Run a fetch with a hard deadline. AbortController fires on timeout
+ * and is propagated to fetch via `signal`. Throws ProviderTimeoutError
+ * (typed, distinguishable) on timeout — never a plain AbortError.
+ */
+async function fetchWithTimeout(
+  provider: string,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') {
+      throw new ProviderTimeoutError(provider, timeoutMs);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // ─── Core Types ───────────────────────────────────────────────────────────────
 
@@ -508,11 +549,16 @@ interface ChatPayload {
 
 async function callOllama(p: ChatPayload): Promise<string> {
   const msgs = p.messages.map(m => ({ role: m.role, content: m.content }));
-  const res = await fetch(`${ENV.OLLAMA_HOST}/api/chat`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ model: p.model, messages: msgs, stream: false }),
-  });
+  const res = await fetchWithTimeout(
+    'ollama',
+    `${ENV.OLLAMA_HOST}/api/chat`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ model: p.model, messages: msgs, stream: false }),
+    },
+    ENV.OLLAMA_TIMEOUT_MS,
+  );
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
   const d = (await res.json()) as { message: { content: string } };
   return d.message?.content ?? '';
@@ -525,20 +571,25 @@ async function callAnthropic(p: ChatPayload): Promise<string> {
     .filter(m => m.role !== 'system')
     .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ENV.ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
+  const res = await fetchWithTimeout(
+    'anthropic',
+    'https://api.anthropic.com/v1/messages',
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ENV.ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      p.model,
+        max_tokens: p.maxTokens,
+        system:     systemMsg,
+        messages:   userMsgs,
+      }),
     },
-    body: JSON.stringify({
-      model:      p.model,
-      max_tokens: p.maxTokens,
-      system:     systemMsg,
-      messages:   userMsgs,
-    }),
-  });
+    ENV.PROVIDER_TIMEOUT_MS,
+  );
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
   const d = (await res.json()) as { content: Array<{ text: string }> };
   return d.content?.[0]?.text ?? '';
@@ -547,14 +598,19 @@ async function callAnthropic(p: ChatPayload): Promise<string> {
 async function callOpenAI(p: ChatPayload): Promise<string> {
   if (!ENV.OPENAI_KEY) throw new Error('OPENAI_API_KEY not set');
   const msgs = p.messages.map(m => ({ role: m.role, content: m.content }));
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ENV.OPENAI_KEY}`,
+  const res = await fetchWithTimeout(
+    'openai',
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ENV.OPENAI_KEY}`,
+      },
+      body: JSON.stringify({ model: p.model, messages: msgs, max_tokens: p.maxTokens }),
     },
-    body: JSON.stringify({ model: p.model, messages: msgs, max_tokens: p.maxTokens }),
-  });
+    ENV.PROVIDER_TIMEOUT_MS,
+  );
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const d = (await res.json()) as { choices: Array<{ message: { content: string } }> };
   return d.choices?.[0]?.message?.content ?? '';
@@ -563,14 +619,19 @@ async function callOpenAI(p: ChatPayload): Promise<string> {
 async function callDeepSeek(p: ChatPayload): Promise<string> {
   if (!ENV.DEEPSEEK_KEY) throw new Error('DEEPSEEK_API_KEY not set');
   const msgs = p.messages.map(m => ({ role: m.role, content: m.content }));
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ENV.DEEPSEEK_KEY}`,
+  const res = await fetchWithTimeout(
+    'deepseek',
+    'https://api.deepseek.com/chat/completions',
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ENV.DEEPSEEK_KEY}`,
+      },
+      body: JSON.stringify({ model: p.model, messages: msgs, max_tokens: p.maxTokens }),
     },
-    body: JSON.stringify({ model: p.model, messages: msgs, max_tokens: p.maxTokens }),
-  });
+    ENV.PROVIDER_TIMEOUT_MS,
+  );
   if (!res.ok) throw new Error(`DeepSeek ${res.status}: ${await res.text()}`);
   const d = (await res.json()) as { choices: Array<{ message: { content: string } }> };
   return d.choices?.[0]?.message?.content ?? '';
@@ -585,7 +646,8 @@ async function callGemini(p: ChatPayload): Promise<string> {
       parts: [{ text: m.content }],
     }));
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
+    'gemini',
     `https://generativelanguage.googleapis.com/v1beta/models/${p.model}:generateContent?key=${ENV.GEMINI_KEY}`,
     {
       method:  'POST',
@@ -594,7 +656,8 @@ async function callGemini(p: ChatPayload): Promise<string> {
         contents,
         generationConfig: { maxOutputTokens: p.maxTokens, temperature: p.temperature },
       }),
-    }
+    },
+    ENV.PROVIDER_TIMEOUT_MS,
   );
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
   const d = (await res.json()) as {
