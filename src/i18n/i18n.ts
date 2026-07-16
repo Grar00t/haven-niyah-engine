@@ -283,10 +283,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'السيادة الرقمية ليست خيارًا — إنها واجب',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'مدعوم بـ Ollama المحلي',
-    'phrase.localInference':    'معالجة محلية بالكامل',
-    'phrase.noDataLeaks':       'لا تسرّب للبيانات',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'كودك ملكك وحدك',
 
     'settings.title':        'الإعدادات',
@@ -418,10 +418,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'Digital sovereignty is not optional — it\'s a duty',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'Powered by local Ollama',
-    'phrase.localInference':    '100% local inference',
-    'phrase.noDataLeaks':       'Zero data leaks',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'Your code stays yours',
 
     'settings.title':        'Settings',
@@ -553,10 +553,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'La souveraineté numérique n\'est pas optionnelle — c\'est un devoir',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'Propulsé par Ollama local',
-    'phrase.localInference':    'Inférence 100% locale',
-    'phrase.noDataLeaks':       'Aucune fuite de données',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'Votre code vous appartient',
 
     'settings.title':        'Paramètres',
@@ -688,10 +688,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'La soberanía digital no es opcional — es un deber',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'Impulsado por Ollama local',
-    'phrase.localInference':    'Inferencia 100% local',
-    'phrase.noDataLeaks':       'Cero fugas de datos',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'Tu código es tuyo',
 
     'settings.title':        'Configuración',
@@ -823,10 +823,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'デジタル主権はオプションではありません — それは義務です',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'ローカルOllamaで動作',
-    'phrase.localInference':    '100%ローカル推論',
-    'phrase.noDataLeaks':       'データ漏洩ゼロ',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'あなたのコードはあなただけのもの',
 
     'settings.title':        '設定',
@@ -958,10 +958,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'Digitale Souveränität ist keine Option — sie ist eine Pflicht',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'Betrieben von lokalem Ollama',
-    'phrase.localInference':    '100% lokale Inferenz',
-    'phrase.noDataLeaks':       'Null Datenlecks',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'Ihr Code gehört nur Ihnen',
 
     'settings.title':        'Einstellungen',
@@ -1093,10 +1093,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   '数字主权不是可选项 — 它是一种责任',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   '由本地Ollama驱动',
-    'phrase.localInference':    '100%本地推理',
-    'phrase.noDataLeaks':       '零数据泄露',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'您的代码仅属于您',
 
     'settings.title':        '设置',
@@ -1228,10 +1228,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   '디지털 주권은 선택이 아닙니다 — 의무입니다',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   '로컬 Ollama로 구동',
-    'phrase.localInference':    '100% 로컬 추론',
-    'phrase.noDataLeaks':       '데이터 유출 없음',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'코드는 오직 당신의 것',
 
     'settings.title':        '설정',
@@ -1363,10 +1363,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'Dijital egemenlik isteğe bağlı değil — bir yükümlülüktür',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'Yerel Ollama ile desteklenmektedir',
-    'phrase.localInference':    '%100 yerel çıkarım',
-    'phrase.noDataLeaks':       'Sıfır veri sızıntısı',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'Kodunuz yalnızca sizindir',
 
     'settings.title':        'Ayarlar',
@@ -1498,10 +1498,10 @@ const translations: Record<LocaleCode, Translations> = {
 
     'phrase.sovereigntyDuty':   'डिजिटल संप्रभुता वैकल्पिक नहीं है — यह एक कर्तव्य है',
     'phrase.tagline':           'There is nothing impossible — We are heirs of Al-Khwarizmi',
-    'phrase.taglineAr':         'لا يوجد مستحيل في الدنيا — نحن ورثة الخوارزمي',
+    'phrase.taglineAr':         'NIYAH model orchestration',
     'phrase.poweredByOllama':   'स्थानीय Ollama द्वारा संचालित',
-    'phrase.localInference':    '100% स्थानीय अनुमान',
-    'phrase.noDataLeaks':       'शून्य डेटा लीक',
+    'phrase.localInference':    'Configured model inference',
+    'phrase.noDataLeaks':       'Data handling settings',
     'phrase.yourCodeYoursAlone':'आपका कोड केवल आपका है',
 
     'settings.title':        'सेटिंग्स',
