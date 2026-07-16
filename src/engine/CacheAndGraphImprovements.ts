@@ -1,30 +1,22 @@
 /**
- * HAVEN IDE — Enhanced LRU Cache + Intent Graph
+ * LRU Cache and Intent Graph
  * ===============================================
- * Upgrades for NiyahEngine and ModelRouter:
- *
+*
  *   LRU Cache:    64 → 512 entries   + TTL + memory-aware eviction + stats
  *   IntentGraph:  20 → 200 sessions  + persistence + weighted edges +
  *                 cluster analysis + JSON export + full statistics
  *
- * Drop-in replacement — same public interface, richer internals.
- *
- * @author  Sulaiman Alshammari (أبو خوارزم / @Grar00t)
- * @project HAVEN — Sovereign AI Development Environment
- * @website khawrizm.com
+*
  * @license AGPL-3.0
  * @version 5.0.0
  */
 
-// ═════════════════════════════════════════════════════════════════════════════
 //  SECTION 1: ENHANCED LRU CACHE
-// ═════════════════════════════════════════════════════════════════════════════
-
 /**
  * Configuration for the enhanced LRU cache.
  */
 export interface LRUCacheConfig {
-  /** Maximum number of entries. Default: 512 (up from 64). */
+  /** Maximum number of entries. Default: 512. */
   maxSize?: number;
   /** Time-to-live in milliseconds. 0 = never expire. Default: 600_000 (10 min). */
   ttl?: number;
@@ -60,8 +52,8 @@ export interface CacheStats {
 }
 
 /**
- * Enhanced LRU Cache with:
- * - 512 entry default (upgraded from 64)
+ * LRU cache implementation with:
+ * - 512-entry default
  * - TTL-based expiration
  * - Memory-aware eviction
  * - Hit/miss statistics
@@ -348,10 +340,7 @@ export class EnhancedLRUCache<K, V> {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
 //  SECTION 2: ENHANCED INTENT GRAPH
-// ═════════════════════════════════════════════════════════════════════════════
-
 /** Edge types with their relative weights. */
 export const EDGE_WEIGHTS = {
   context:  4.0,   // Direct conversational context (strongest)
@@ -437,7 +426,7 @@ export interface IntentGraphStats {
 
 /** Configuration for the intent graph. */
 export interface IntentGraphConfig {
-  /** Maximum sessions (recent intents) to keep. Default: 200 (up from 20). */
+  /** Maximum sessions (recent intents) to keep. Default: 200. */
   sessionLookback?: number;
   /** Minimum edge weight before pruning. Default: 0.5. */
   pruneThreshold?: number;
@@ -450,16 +439,16 @@ export interface IntentGraphConfig {
 }
 
 /**
- * Enhanced Intent Graph for NiyahEngine.
+ * Intent graph implementation for NiyahEngine.
  *
- * Improvements over the original (20-session, non-persistent) version:
- * - Session lookback: 200 (10× more history)
+ * Configured capabilities:
+ * - Session lookback: 200 entries
  * - Graph persistence via localStorage
  * - Weighted edges: context > root > domain > temporal
  * - Graph pruning (removes weak/stale edges)
  * - Cluster analysis (dominant intent patterns)
  * - JSON export for visualization (e.g., D3.js, Cytoscape)
- * - Rich statistics: density, top intents, top clusters
+ * - Statistics: density, top intents, and clusters
  *
  * @example
  *   const graph = new EnhancedIntentGraph();
@@ -849,10 +838,7 @@ export class EnhancedIntentGraph {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
 //  SECTION 3: DROP-IN REPLACEMENTS FOR EXISTING HAVEN CLASSES
-// ═════════════════════════════════════════════════════════════════════════════
-
 /**
  * ModelRouter-compatible cache.
  * Replace the original 64-entry Map cache in ModelRouter with this.
@@ -917,10 +903,7 @@ export class NiyahIntentGraph extends EnhancedIntentGraph {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
 //  SECTION 4: UTILITY FUNCTIONS
-// ═════════════════════════════════════════════════════════════════════════════
-
 /**
  * Create a debounced version of `EnhancedLRUCache.purgeExpired()` to call
  * on a timer without blocking the main thread.
@@ -941,7 +924,7 @@ export function scheduleCachePurge<K, V>(
 }
 
 /**
- * Pretty-print cache stats to the console (useful during development).
+ * Log cache statistics during development.
  */
 export function logCacheStats<K, V>(cache: EnhancedLRUCache<K, V>, label = 'Cache'): void {
   const s = cache.getStats();
@@ -957,7 +940,7 @@ export function logCacheStats<K, V>(cache: EnhancedLRUCache<K, V>, label = 'Cach
 }
 
 /**
- * Pretty-print intent graph stats to the console.
+ * Log intent graph statistics.
  */
 export function logGraphStats(graph: EnhancedIntentGraph, label = 'IntentGraph'): void {
   const s = graph.getStats();
@@ -972,10 +955,7 @@ export function logGraphStats(graph: EnhancedIntentGraph, label = 'IntentGraph')
   console.groupEnd();
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
 //  EXPORTS
-// ═════════════════════════════════════════════════════════════════════════════
-
 export default {
   EnhancedLRUCache,
   EnhancedIntentGraph,

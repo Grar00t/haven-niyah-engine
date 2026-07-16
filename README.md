@@ -39,24 +39,6 @@
     └───────────────┘  └─────────────┘  └─────────────┘
 ```
 
-## ⚡ Quick Start
-
-```bash
-# Clone
-git clone https://github.com/Grar00t/haven-sovereign.git
-cd haven-sovereign
-
-# Install
-npm install
-
-# Run (development)
-npm run dev
-# → http://localhost:5173
-
-# Build (production)
-npm run build
-```
-
 ## 🏗️ Components
 
 | Component | Lines | Description |
@@ -69,9 +51,9 @@ npm run build
 | **useNiyah.tsx** | 305 | React hook with SSE streaming |
 | **niyah-route.ts** | 164 | Next.js/Express API handlers |
 | **i18n.ts** | 1,744 | 10-language support (Arabic-first) |
-| **Tests** | 1,211 | 102 tests across 15 suites |
+| **Tests** | 1,211 | Behavioral mock test scaffold across 15 suites |
 
-**Total: 8,395+ lines of production TypeScript**
+**Repository includes TypeScript and Python implementation components.**
 
 ## 🇸🇦 بالعربي
 
@@ -84,8 +66,7 @@ npm run build
 ## 🔒 Security
 
 - AES-256-GCM session encryption
-- Phalanx Gate zero-trust firewall
-- QEMU sandboxing for untrusted processes
+- QEMU virtual-machine management components
 ## 📜 License
 
 AGPL-3.0 — see [LICENSE](LICENSE)
