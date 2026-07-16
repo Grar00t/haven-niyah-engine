@@ -14,8 +14,7 @@
  * - نظام أحداث لدورة حياة العمليات
  * - دعم كامل لـ Windows و Linux
  *
- * Zero telemetry — all communication stays local.
- *
+*
  * @module SovereignBridge
  */
 

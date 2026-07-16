@@ -3,7 +3,6 @@
  *  NIYAH ENGINE  ·  نية  ·  v5.0
  *  Sovereign Three-Lobe AI Orchestration — Advanced Edition
  *
- *  نحن ورثة الخوارزمي — لا يوجد مستحيل في الدنيا
  *
  *  UPGRADES over v3:
  *    - RAM-aware model selection with hardware profiling
@@ -14,7 +13,6 @@
  *    - Automatic lobe failover with circuit breaker
  *    - Request deduplication and response caching
  *
- *  KHAWRIZM Labs — Dragon403 — Riyadh
  * ════════════════════════════════════════════════════════════════════
  */
 
@@ -341,22 +339,22 @@ Built by KHAWRIZM Labs — Dragon403 — Riyadh.`,
   executive: `You are NIYAH — Executive Lobe. Specialty: code generation, task execution,
 deployment scripts, and system building. Write clean, production-grade code.
 Languages: TypeScript, Python, Rust, Bash. Frameworks: React, Vite, Tauri.
-Zero telemetry. Local-first. Saudi sovereignty (PDPL compliant).
-Sign as: — نية (Niyah Engine)`,
+Use the model provider and execution mode selected in the configuration.
+`,
 };
 
 // ─── Identity Guard ─────────────────────────────────────────────────
 
 const ID_TRIGGERS = [
   'are you', 'who are you', 'what are you', 'r u',
-  'gemini', 'claude', 'gpt', 'chatgpt', 'copilot',
+  
   'هل أنت', 'هل انت', 'من صنعك', 'من أنت', 'من انت',
   'ايش انت', 'مين انت',
 ];
 
 const IDENTITY_RESPONSE = {
-  en: `I am NIYAH (نيّة) — the Sovereign AI Engine built by Sulaiman Alshammari at KHAWRIZM Labs, Riyadh. I use a Three-Lobe architecture (Sensory, Cognitive, Executive) for Arabic-first, zero-telemetry AI. I am NOT ChatGPT, Claude, Gemini, or any corporate AI. I run 100% locally on YOUR machine.`,
-  ar: `أنا نيّة (NIYAH) — محرك ذكاء اصطناعي سيادي من مختبرات الخوارزمي، الرياض. أعمل بمنهجية الفصوص الثلاثة (حسي، إدراكي، تنفيذي). أنا لست ChatGPT ولا Claude ولا Gemini. أعمل 100% محلياً بدون أي بيانات ترسل للخارج. بناء سليمان الشمري — Dragon403.`,
+  en: `NIYAH is an orchestration and Arabic-language processing component supporting configured local and cloud model providers.`,
+  ar: `نيّة مكوّن لتوجيه النماذج ومعالجة المدخلات العربية، ويدعم مزودي النماذج المحليين والسحابيين وفق الإعدادات.`,
 };
 
 // ─── Engine ─────────────────────────────────────────────────────────

@@ -3,7 +3,6 @@
  *  NIYAH ENGINE  ·  نية  ·  v3.0
  *  Three-Lobe Sovereign AI Orchestration
  *
- *  نحن ورثة الخوارزمي — لا يوجد مستحيل في الدنيا
  *
  *  ┌─────────────────────────────────────────────────────────┐
  *  │  SENSORY LOBE   → Input parsing, lang detect, intent    │
@@ -12,12 +11,11 @@
  *  └─────────────────────────────────────────────────────────┘
  *
  *  Model priority chain (sovereign-first):
- *    1. LOCAL  — Ollama (zero cloud, zero telemetry)
+ * 1. LOCAL  — Ollama
  *    2. FAST   — Claude Haiku / GPT-4o-mini / Gemini Flash
  *    3. HEAVY  — Claude Sonnet / GPT-4o / DeepSeek-V3
  *
- *  Zero telemetry. Arabic-first. Cryptographically auditable.
- * ════════════════════════════════════════════════════════════════════
+* ════════════════════════════════════════════════════════════════════
  */
 
 // ─── Env ─────────────────────────────────────────────────────────────────────

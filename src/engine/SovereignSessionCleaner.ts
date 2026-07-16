@@ -14,8 +14,7 @@
  * - AES-256-GCM encrypted export before permanent deletion
  * - Configurable cleanup scheduler
  * - Statistics tracking (cleaned count, bytes freed, last run time)
- * - Zero telemetry — all data stays on-device
- *
+*
  * @module SovereignSessionCleaner
  */
 

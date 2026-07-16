@@ -1,8 +1,7 @@
 /**
  * useNiyah — React hook for Haven IDE
  * Drop-in multi-model AI hook. Streams tokens. Traces routing.
- * نحن ورثة الخوارزمي
- */
+*/
 
 import { useState, useCallback, useRef } from 'react';
 
