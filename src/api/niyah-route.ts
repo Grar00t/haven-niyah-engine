@@ -8,8 +8,8 @@
  * Works with Next.js App Router, Vite+Express, or standalone Node.
  */
 
-import { NiyahEngine, NiyahMemory, globalMemory } from './niyah-engine-v3';
-import type { NiyahRequest, NiyahResponse } from './niyah-engine-v3';
+import { NiyahEngine, NiyahMemory, globalMemory } from '../engine/niyah-engine-v3';
+import type { NiyahRequest, NiyahResponse } from '../engine/niyah-engine-v3';
 
 const engine = new NiyahEngine(globalMemory);
 
@@ -42,7 +42,8 @@ export async function handleStream(
     send('done', { latencyMs: Date.now() - t0 });
     writer.write('data: [DONE]\n\n');
   } catch (err) {
-    send('error', { message: String(err) });
+    console.error('[NIYAH STREAM]', err);
+    send('error', { message: 'Internal server error' });
   } finally {
     writer.end();
   }
@@ -94,7 +95,8 @@ export async function POST_ask(request: Request): Promise<Response> {
       trace:      resp.trace,
     });
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
+    console.error('[NIYAH API]', err);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -114,10 +116,12 @@ export async function GET_health(_request: Request): Promise<Response> {
   });
   return Response.json({
     ollamaAlive: analysis.ollamaAlive,
-    anthropic:   !!process.env.ANTHROPIC_API_KEY,
-    openai:      !!process.env.OPENAI_API_KEY,
-    deepseek:    !!process.env.DEEPSEEK_API_KEY,
-    gemini:      !!process.env.GEMINI_API_KEY,
+    cloudProvidersConfigured: Boolean(
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.DEEPSEEK_API_KEY ||
+      process.env.GEMINI_API_KEY
+    ),
     engine:      'Niyah v3.0',
     memory:      (globalMemory as NiyahMemory).size(),
   });
