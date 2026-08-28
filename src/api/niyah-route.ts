@@ -1,168 +1,173 @@
-/**
- * Haven IDE · Niyah API Route
- * POST /api/niyah/stream   — SSE streaming
- * POST /api/niyah          — non-streaming JSON
- * GET  /api/niyah/models   — list available models
- * GET  /api/niyah/health   — ollama + key status
- *
- * Works with Next.js App Router, Vite+Express, or standalone Node.
- */
+import { NiyahEngineV5 } from '../engine/niyah-engine-v5';
+import type { LobeId, NiyahResponse } from '../engine/niyah-engine-v5';
 
-import { NiyahEngine, NiyahMemory, globalMemory } from '../engine/niyah-engine-v3';
-import type { NiyahRequest, NiyahResponse } from '../engine/niyah-engine-v3';
+const engine = new NiyahEngineV5();
+const engineReady = engine.init();
 
-const engine = new NiyahEngine(globalMemory);
+function safeErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Request failed';
+}
 
-// ─── Streaming endpoint ───────────────────────────────────────────────────────
+async function ready(): Promise<void> {
+  await engineReady;
+}
 
-export async function handleStream(
-  req: NiyahRequest,
-  writer: { write: (s: string) => void; end: () => void },
-): Promise<void> {
-  const send = (type: string, payload: object) =>
-    writer.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
-
+export async function POST_stream(request: Request): Promise<Response> {
   try {
-    // Emit meta first (routing decision)
-    const analysis = await engine.analyse(req);
-    send('meta', {
-      model:     analysis.executive.selectedModel,
-      tier:      analysis.executive.tier,
-      task:      analysis.sensory.detectedTask,
-      lang:      analysis.sensory.detectedLang,
-      routing:   analysis.executive.routingReason,
-    });
-
-    // Stream tokens
-    const t0 = Date.now();
-    for await (const chunk of engine.streamTokens({ ...req, stream: true })) {
-      send('chunk', { content: chunk });
+    const body = await request.json() as { input?: unknown; forceLobe?: LobeId; sessionId?: unknown };
+    if (typeof body.input !== 'string') {
+      return Response.json({ error: 'input must be a string' }, { status: 400 });
     }
 
-    send('done', { latencyMs: Date.now() - t0 });
-    writer.write('data: [DONE]\n\n');
-  } catch (err) {
-    console.error('[NIYAH STREAM]', err);
-    send('error', { message: 'Internal server error' });
-  } finally {
-    writer.end();
+    await ready();
+    const response = await engine.query(body.input, body.forceLobe, typeof body.sessionId === 'string' ? body.sessionId : undefined);
+    const encoder = new TextEncoder();
+    const payload = [
+      `data: ${JSON.stringify({
+        type: 'meta',
+        model: response.model,
+        lobe: response.lobe,
+        latencyMs: response.latencyMs,
+      })}\n\n`,
+      `data: ${JSON.stringify({ type: 'chunk', content: response.text })}\n\n`,
+      `data: ${JSON.stringify({ type: 'done', latencyMs: response.latencyMs })}\n\n`,
+      'data: [DONE]\n\n',
+    ].join('');
+
+    return new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(payload));
+        controller.close();
+      },
+    }), {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Niyah': engine.version,
+      },
+    });
+  } catch (error) {
+    return Response.json({ error: safeErrorMessage(error) }, { status: 500 });
   }
 }
 
-// ─── Next.js App Router handler ──────────────────────────────────────────────
-
-// pages/api/niyah/stream.ts  OR  app/api/niyah/stream/route.ts
-
-export async function POST_stream(request: Request): Promise<Response> {
-  const body = (await request.json()) as NiyahRequest;
-
-  const stream = new TransformStream();
-  const writer = stream.writable.getWriter();
-  const encoder = new TextEncoder();
-
-  const w = {
-    write: (s: string) => writer.write(encoder.encode(s)),
-    end:   () => writer.close(),
-  };
-
-  // Run async — don't await, return the stream immediately
-  handleStream(body, w).catch(err => {
-    w.write(`data: ${JSON.stringify({ type: 'error', message: String(err) })}\n\n`);
-    w.end();
-  });
-
-  return new Response(stream.readable, {
-    headers: {
-      'Content-Type':  'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection':    'keep-alive',
-      'X-Niyah':       'v3',
-    },
-  });
-}
-
 export async function POST_ask(request: Request): Promise<Response> {
-  const body = (await request.json()) as NiyahRequest;
   try {
-    const resp: NiyahResponse = await engine.run({ ...body, stream: false });
+    const body = await request.json() as { input?: unknown; forceLobe?: LobeId; sessionId?: unknown };
+    if (typeof body.input !== 'string') {
+      return Response.json({ error: 'input must be a string' }, { status: 400 });
+    }
+
+    await ready();
+    const resp: NiyahResponse = await engine.query(
+      body.input,
+      body.forceLobe,
+      typeof body.sessionId === 'string' ? body.sessionId : undefined,
+    );
+
     return Response.json({
-      content:    resp.content,
-      model:      resp.model,
-      tier:       resp.tier,
-      confidence: resp.confidence,
-      lang:       resp.lang,
-      latencyMs:  resp.latencyMs,
-      trace:      resp.trace,
+      content: resp.text,
+      model: resp.model,
+      lobe: resp.lobe,
+      confidence: resp.vector.confidence,
+      dialect: resp.vector.dialect,
+      tone: resp.vector.tone,
+      latencyMs: resp.latencyMs,
+      tokensUsed: resp.tokensUsed,
+      sessionId: resp.sessionId,
+      vector: resp.vector,
+      sovereign: resp.sovereign,
     });
-  } catch (err) {
-    console.error('[NIYAH API]', err);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error) {
+    return Response.json({ error: safeErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function GET_models(_request: Request): Promise<Response> {
+  await ready();
   return Response.json({
-    models: engine.listModels(),
-    memory: {
-      keys: (globalMemory as NiyahMemory).keys(),
-      size: (globalMemory as NiyahMemory).size(),
-    },
+    models: engine.availableModels,
+    version: engine.version,
   });
 }
 
 export async function GET_health(_request: Request): Promise<Response> {
-  const analysis = await engine.analyse({
-    messages: [{ role: 'user', content: 'ping' }],
-  });
-  return Response.json({
-    ollamaAlive: analysis.ollamaAlive,
-    cloudProvidersConfigured: Boolean(
-      process.env.ANTHROPIC_API_KEY ||
-      process.env.OPENAI_API_KEY ||
-      process.env.DEEPSEEK_API_KEY ||
-      process.env.GEMINI_API_KEY
-    ),
-    engine:      'Niyah v3.0',
-    memory:      (globalMemory as NiyahMemory).size(),
-  });
+  await ready();
+  return Response.json(engine.health());
 }
-
-// ─── Express / Hono adapter ──────────────────────────────────────────────────
 
 export function niyahExpressRouter() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const express = require('express');
-  const router  = express.Router();
+  const router = express.Router();
 
-  router.post('/stream', async (req: { body: NiyahRequest }, res: {
-    setHeader: (k: string, v: string) => void;
-    write: (s: string) => void;
+  router.post('/stream', async (req: { body?: { input?: unknown; forceLobe?: LobeId; sessionId?: unknown } }, res: {
+    status: (code: number) => { json: (data: unknown) => void };
+    setHeader: (key: string, value: string) => void;
+    write: (data: string) => void;
     end: () => void;
   }) => {
-    res.setHeader('Content-Type',  'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection',    'keep-alive');
-    await handleStream(req.body, res);
+    try {
+      const body = req.body ?? {};
+      if (typeof body.input !== 'string') {
+        res.status(400).json({ error: 'input must be a string' });
+        return;
+      }
+      await ready();
+      const response = await engine.query(body.input, body.forceLobe, typeof body.sessionId === 'string' ? body.sessionId : undefined);
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.write(`data: ${JSON.stringify({ type: 'meta', model: response.model, lobe: response.lobe, latencyMs: response.latencyMs })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'chunk', content: response.text })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'done', latencyMs: response.latencyMs })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error) {
+      res.status(500).json({ error: safeErrorMessage(error) });
+    }
   });
 
-  router.post('/', async (req: { body: NiyahRequest }, res: { json: (d: unknown) => void }) => {
-    const resp = await engine.run({ ...req.body, stream: false });
-    res.json({ content: resp.content, model: resp.model, tier: resp.tier,
-               confidence: resp.confidence, lang: resp.lang, trace: resp.trace });
+  router.post('/', async (req: { body?: { input?: unknown; forceLobe?: LobeId; sessionId?: unknown } }, res: {
+    status: (code: number) => { json: (data: unknown) => void };
+    json: (data: unknown) => void;
+  }) => {
+    try {
+      const body = req.body ?? {};
+      if (typeof body.input !== 'string') {
+        res.status(400).json({ error: 'input must be a string' });
+        return;
+      }
+      await ready();
+      const response = await engine.query(body.input, body.forceLobe, typeof body.sessionId === 'string' ? body.sessionId : undefined);
+      res.json({
+        content: response.text,
+        model: response.model,
+        lobe: response.lobe,
+        confidence: response.vector.confidence,
+        dialect: response.vector.dialect,
+        tone: response.vector.tone,
+        latencyMs: response.latencyMs,
+        tokensUsed: response.tokensUsed,
+        sessionId: response.sessionId,
+        vector: response.vector,
+        sovereign: response.sovereign,
+      });
+    } catch (error) {
+      res.status(500).json({ error: safeErrorMessage(error) });
+    }
   });
 
-  router.get('/models', (_: unknown, res: { json: (d: unknown) => void }) => {
-    res.json({ models: engine.listModels() });
+  router.get('/models', async (_req: unknown, res: { json: (data: unknown) => void }) => {
+    await ready();
+    res.json({ models: engine.availableModels, version: engine.version });
   });
 
-  router.get('/health', async (_: unknown, res: { json: (d: unknown) => void }) => {
-    const a = await engine.analyse({ messages: [{ role: 'user', content: 'ping' }] });
-    res.json({ ollamaAlive: a.ollamaAlive, engine: 'Niyah v3.0' });
+  router.get('/health', async (_req: unknown, res: { json: (data: unknown) => void }) => {
+    await ready();
+    res.json(engine.health());
   });
 
   return router;
 }
-
-// Usage:
-//   import { niyahExpressRouter } from './niyah-route';
-//   app.use('/api/niyah', niyahExpressRouter());
