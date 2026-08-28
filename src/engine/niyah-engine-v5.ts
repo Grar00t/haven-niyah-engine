@@ -13,6 +13,8 @@ export interface NiyahQueryOptions { model?: string; maxOutputTokens?: number; d
 export interface HardwareProfile { cpuCores: number; availableRamGb: number; totalRamGb: number; gpuPresent: boolean; vramGb: number | null; }
 interface CircuitState { failures: number; lastFailure: number; open: boolean; }
 
+const MAX_INPUT_LENGTH = 16_000;
+
 class CircuitBreaker {
   private readonly states = new Map<string, CircuitState>();
   constructor(private readonly threshold = 3, private readonly resetMs = 30_000) {}
@@ -135,6 +137,10 @@ export class NiyahEngineV5 {
 
   async query(input: string, sessionId = `niyah-${Date.now()}`, options: NiyahQueryOptions = {}): Promise<NiyahResponse> {
     const started = performance.now();
+    if (input.length > MAX_INPUT_LENGTH) {
+      const oversized: IntentVector = { intent: 'general', confidence: null, dialect: 'msa', language: 'other', tone: 'neutral', evidence: ['input_limit'] };
+      return this.unavailable(`Input exceeds ${MAX_INPUT_LENGTH} characters.`, sessionId, oversized, started, undefined, 'error');
+    }
     const normalized = normalizeInput(input);
     const classification = policyClassify(normalized);
     const tone = detectTone(normalized);
@@ -194,7 +200,11 @@ export class NiyahEngineV5 {
 
   get availableModels(): ModelDescriptor[] { return this.models.map((model) => ({ ...model, capabilities: { ...model.capabilities } })); }
   get hardware(): HardwareProfile { return hardwareProfile(); }
-  health(): { status: 'ready' | 'offline'; provider: string; locality: 'local' | 'cloud'; models: number; version: string } { return { status: this.models.length > 0 ? 'ready' : 'offline', provider: this.provider.name, locality: this.provider.locality, models: this.models.length, version: this.version }; }
-  private unavailable(text: string, sessionId: string, vector: IntentVector, started: number, model?: ModelDescriptor, executionStatus: 'error' | 'unavailable' = 'unavailable'): NiyahResponse { return { text, provider: this.provider.name, model: model?.name ?? 'none', locality: this.provider.locality, lobe: vector.intent === 'general' ? 'sensory' : this.lobeForTask(vector.intent), latencyMs: Math.round(performance.now() - started), tokenUsage: null, fallback: false, executionStatus, sessionId, vector }; }
+  health(): { status: 'ready' | 'offline'; provider: string; locality: 'local' | 'cloud'; models: number; version: string } {
+    return { status: this.models.length > 0 ? 'ready' : 'offline', provider: this.provider.name, locality: this.provider.locality, models: this.models.length, version: this.version };
+  }
+  private unavailable(text: string, sessionId: string, vector: IntentVector, started: number, model?: ModelDescriptor, executionStatus: 'error' | 'unavailable' = 'unavailable'): NiyahResponse {
+    return { text, provider: this.provider.name, model: model?.name ?? 'none', locality: this.provider.locality, lobe: vector.lobeForTask ?? this.lobeForTask(vector.intent), latencyMs: Math.round(performance.now() - started), tokenUsage: null, fallback: false, executionStatus, sessionId, vector } as NiyahResponse;
+  }
   private lobeForTask(task: TaskType): LobeId { return task === 'arabic_nlp' || task === 'general' ? 'sensory' : task === 'security_audit' || task === 'architecture' || task === 'chat' ? 'cognitive' : 'executive'; }
 }
