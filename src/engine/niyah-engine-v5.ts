@@ -6,22 +6,9 @@ import type { ModelDescriptor, ModelProvider, ProviderErrorClass, TokenUsage } f
 import { cleanResponse, defaultQualityLimits, validateResponse } from './response-quality';
 
 export type Tone = 'urgent' | 'commanding' | 'curious' | 'friendly' | 'formal' | 'neutral';
-
 export interface IntentVector { intent: TaskType; confidence: number | null; dialect: Dialect; language: Language; tone: Tone; evidence: string[]; }
 export interface SessionMessage { role: 'user' | 'assistant'; content: string; }
-export interface NiyahResponse {
-  text: string;
-  provider: string;
-  model: string;
-  locality: 'local' | 'cloud';
-  lobe: LobeId;
-  latencyMs: number;
-  tokenUsage: TokenUsage | null;
-  fallback: boolean;
-  executionStatus: 'ok' | 'error' | 'unavailable';
-  sessionId: string;
-  vector: IntentVector;
-}
+export interface NiyahResponse { text: string; provider: string; model: string; locality: 'local' | 'cloud'; lobe: LobeId; latencyMs: number; tokenUsage: TokenUsage | null; fallback: boolean; executionStatus: 'ok' | 'error' | 'unavailable'; sessionId: string; vector: IntentVector; }
 export interface NiyahQueryOptions { model?: string; maxOutputTokens?: number; detailed?: boolean; concise?: boolean; signal?: AbortSignal; }
 export interface HardwareProfile { cpuCores: number; availableRamGb: number; totalRamGb: number; gpuPresent: boolean; vramGb: number | null; }
 interface CircuitState { failures: number; lastFailure: number; open: boolean; }
@@ -207,10 +194,7 @@ export class NiyahEngineV5 {
 
   get availableModels(): ModelDescriptor[] { return this.models.map((model) => ({ ...model, capabilities: { ...model.capabilities } })); }
   get hardware(): HardwareProfile { return hardwareProfile(); }
-  health(): { status: 'ready' | 'offline'; provider: string; locality: 'local' | 'cloud'; models: number; version: string } {
-    return { status: this.models.length > 0 ? 'ready' : 'offline', provider: this.provider.name, locality: this.provider.locality, models: this.models.length, version: this.version };
-  }
-  private unavailable(text: string, sessionId: string, vector: IntentVector, started: number, model?: ModelDescriptor, executionStatus: 'error' | 'unavailable' = 'unavailable'): NiyahResponse {
-    return { text, provider: this.provider.name, model: model?.name ?? 'none', locality: this.provider.locality, lobe: vector.intent === 'general' ? 'sensory' : classify(vector.intent).lobe, latencyMs: Math.round(performance.now() - started), tokenUsage: null, fallback: false, executionStatus, sessionId, vector };
-  }
+  health(): { status: 'ready' | 'offline'; provider: string; locality: 'local' | 'cloud'; models: number; version: string } { return { status: this.models.length > 0 ? 'ready' : 'offline', provider: this.provider.name, locality: this.provider.locality, models: this.models.length, version: this.version }; }
+  private unavailable(text: string, sessionId: string, vector: IntentVector, started: number, model?: ModelDescriptor, executionStatus: 'error' | 'unavailable' = 'unavailable'): NiyahResponse { return { text, provider: this.provider.name, model: model?.name ?? 'none', locality: this.provider.locality, lobe: vector.intent === 'general' ? 'sensory' : this.lobeForTask(vector.intent), latencyMs: Math.round(performance.now() - started), tokenUsage: null, fallback: false, executionStatus, sessionId, vector }; }
+  private lobeForTask(task: TaskType): LobeId { return task === 'arabic_nlp' || task === 'general' ? 'sensory' : task === 'security_audit' || task === 'architecture' || task === 'chat' ? 'cognitive' : 'executive'; }
 }
