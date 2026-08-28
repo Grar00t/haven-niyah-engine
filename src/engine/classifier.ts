@@ -26,10 +26,10 @@ const ARCH_RE = /\barchitecture|design|system design|tradeoff|evaluate\b|معم�
 const WHY_RE = /\bwhy|how does|explain|what is|compare\b|لماذا|كيف|اشرح|ما هو|قارن/i;
 
 const DIALECT_RULES: Array<{ dialect: Exclude<Dialect, 'english' | 'mixed'>; terms: RegExp }> = [
-  { dialect: 'saudi', terms: /أبغى|ابغى|وش|ليش|كذا|خلاص|طيب|ذا|سوي|والله|ودي|أحس|مافي|هلا|الحين|مره|مرة/i },
-  { dialect: 'khaliji', terms: /شلون|اشلون|خوش|وايد|زين|هيج|أبي|ابي|يبغالي/i },
-  { dialect: 'egyptian', terms: /عايز|عاوزه|إيه|ايه|ازيك|كده|دلوقتي|أهو|اهو|مش|لسه/i },
-  { dialect: 'levantine', terms: /شو|هيك|بدي|عم|كتير|يسلمو|منيح|هلق|هلا/i },
+  { dialect: 'saudi', terms: /ابغى|وش|ليش|كذا|خلاص|طيب|ذا|سوي|والله|ودي|احس|مافي|هلا|الحين|مره/i },
+  { dialect: 'khaliji', terms: /شلون|اشلون|خوش|وايد|زين|هيج|ابي|يبغالي/i },
+  { dialect: 'egyptian', terms: /عايز|عاوزه|ايه|ازيك|كده|دلوقتي|اهو|مش|لسه/i },
+  { dialect: 'levantine', terms: /كيفك|شو|هيك|بدي|عم|كتير|يسلمو|منيح|هلق|هلا/i },
 ];
 
 export function normalizeInput(input: string): string {
@@ -49,7 +49,7 @@ export function detectDialect(input: string): Dialect {
   if (!/[\u0600-\u06FF]/u.test(normalized)) return 'english';
   const scores = new Map<Exclude<Dialect, 'english' | 'mixed'>, number>();
   for (const rule of DIALECT_RULES) {
-    const matches = normalized.match(new RegExp(rule.terms.source, `${rule.terms.flags.replace('g', '')}g`))?.length ?? 0;
+    const matches = normalized.match(new RegExp(rule.terms.source, 'gu'))?.length ?? 0;
     if (matches > 0) scores.set(rule.dialect, matches);
   }
   const ordered = [...scores.entries()].sort((a, b) => b[1] - a[1]);
@@ -58,25 +58,25 @@ export function detectDialect(input: string): Dialect {
   return ordered[0][0];
 }
 
-function makeResult(task: TaskType, lobe: LobeId, dialect: Dialect, language: Language, confidence: number | null, evidence: string[]): ClassificationResult {
-  return { task, lobe, dialect, language, confidence, evidence };
+function makeResult(task: TaskType, lobe: LobeId, dialect: Dialect, language: Language, evidence: string[]): ClassificationResult {
+  return { task, lobe, dialect, language, confidence: null, evidence };
 }
 
 export function classify(input: string): ClassificationResult {
   const normalized = normalizeInput(input);
   const language = detectLanguage(normalized);
   const dialect = detectDialect(normalized);
-  if (!normalized) return makeResult('general', 'sensory', dialect, language, null, []);
-  if (CODE_RE.test(normalized) && DEBUG_RE.test(normalized)) return makeResult('code_fix', 'executive', dialect, language, 0.9, ['code', 'debug']);
-  if (CODE_REVIEW_RE.test(normalized)) return makeResult('code_review', 'cognitive', dialect, language, 0.9, ['code_review']);
-  if (SECURITY_RE.test(normalized)) return makeResult('security_audit', 'cognitive', dialect, language, CODE_RE.test(normalized) ? 0.92 : 0.82, ['security']);
-  if (CODE_RE.test(normalized) && CODE_GEN_RE.test(normalized)) return makeResult('code_gen', 'executive', dialect, language, 0.92, ['code', 'generation']);
-  if (TRANSLATE_RE.test(normalized)) return makeResult('translate', 'executive', dialect, language, 0.9, ['translate']);
-  if (SUMMARIZE_RE.test(normalized)) return makeResult('summarize', 'executive', dialect, language, 0.9, ['summarize']);
-  if (ARCH_RE.test(normalized)) return makeResult('architecture', 'cognitive', dialect, language, 0.84, ['architecture']);
-  if (WHY_RE.test(normalized)) return makeResult('chat', 'cognitive', dialect, language, 0.78, ['explanatory']);
-  if (PLAN_RE.test(normalized)) return makeResult('plan', 'executive', dialect, language, 0.8, ['plan']);
-  if (language === 'ar') return makeResult('arabic_nlp', 'sensory', dialect, language, dialect === 'msa' || dialect === 'mixed' ? null : 0.72, ['arabic']);
-  if (language === 'mixed') return makeResult('general', 'executive', dialect, language, null, ['mixed_language']);
-  return makeResult('general', 'executive', dialect, language, null, []);
+  if (!normalized) return makeResult('general', 'sensory', dialect, language, []);
+  if (CODE_RE.test(normalized) && DEBUG_RE.test(normalized)) return makeResult('code_fix', 'executive', dialect, language, ['code', 'debug']);
+  if (CODE_REVIEW_RE.test(normalized)) return makeResult('code_review', 'cognitive', dialect, language, ['code_review']);
+  if (SECURITY_RE.test(normalized)) return makeResult('security_audit', 'cognitive', dialect, language, ['security']);
+  if (CODE_RE.test(normalized) && CODE_GEN_RE.test(normalized)) return makeResult('code_gen', 'executive', dialect, language, ['code', 'generation']);
+  if (TRANSLATE_RE.test(normalized)) return makeResult('translate', 'executive', dialect, language, ['translate']);
+  if (SUMMARIZE_RE.test(normalized)) return makeResult('summarize', 'executive', dialect, language, ['summarize']);
+  if (ARCH_RE.test(normalized)) return makeResult('architecture', 'cognitive', dialect, language, ['architecture']);
+  if (WHY_RE.test(normalized)) return makeResult('chat', 'cognitive', dialect, language, ['explanatory']);
+  if (PLAN_RE.test(normalized)) return makeResult('plan', 'executive', dialect, language, ['plan']);
+  if (language === 'ar') return makeResult('arabic_nlp', 'sensory', dialect, language, ['arabic']);
+  if (language === 'mixed') return makeResult('general', 'executive', dialect, language, ['mixed_language']);
+  return makeResult('general', 'executive', dialect, language, []);
 }
