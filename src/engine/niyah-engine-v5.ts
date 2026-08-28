@@ -1,22 +1,7 @@
 /**
- * ════════════════════════════════════════════════════════════════════
- *  NIYAH ENGINE  ·  نية  ·  v5.0
- *  Sovereign Three-Lobe AI Orchestration — Advanced Edition
- *
- *
- *  UPGRADES over v3:
- *    - RAM-aware model selection with hardware profiling
- *    - Streaming responses via Server-Sent Events
- *    - Session memory with persistent storage
- *    - Enhanced Arabic dialect detection (Saudi, Khaliji, MSA)
- *    - Phalanx security integration
- *    - Automatic lobe failover with circuit breaker
- *    - Request deduplication and response caching
- *
- * ════════════════════════════════════════════════════════════════════
+ * NIYAH ENGINE v5
+ * Three-lobe local model orchestration.
  */
-
-// ─── Types ──────────────────────────────────────────────────────────
 
 export type ModelTier = 'local' | 'cloud_fast' | 'cloud_heavy';
 export type LobeId = 'sensory' | 'executive' | 'cognitive';
@@ -25,7 +10,6 @@ export type TaskType =
   | 'chat' | 'translate' | 'summarize' | 'plan'
   | 'security_audit' | 'architecture' | 'system_command'
   | 'arabic_nlp' | 'general';
-
 export type Dialect = 'saudi' | 'khaliji' | 'egyptian' | 'levantine' | 'msa' | 'english' | 'mixed';
 export type Tone = 'commanding' | 'friendly' | 'formal' | 'angry' | 'curious' | 'playful' | 'urgent' | 'neutral';
 
@@ -65,309 +49,178 @@ export interface NiyahResponse {
   sovereign: boolean;
 }
 
-export interface StreamToken {
-  token: string;
-  lobe: LobeId;
-  model: string;
-  done: boolean;
-}
-
-// ─── Hardware Profiling ─────────────────────────────────────────────
-
-interface HardwareProfile {
-  totalRamGb: number;
-  availableRamGb: number;
-  cpuCores: number;
-  gpuAvailable: boolean;
-  gpuVramGb: number;
-}
-
 interface ModelSpec {
   name: string;
   requiredRamGb: number;
   lobeAffinity: LobeId[];
-  qualityScore: Record<LobeId, number>;
+  qualityScore: Partial<Record<LobeId, number>>;
   tags: string[];
 }
 
 const MODEL_SPECS: ModelSpec[] = [
-  {
-    name: 'niyah:sovereign',
-    requiredRamGb: 5.5,
-    lobeAffinity: ['cognitive'],
-    qualityScore: { cognitive: 90, executive: 75, sensory: 70 },
-    tags: ['sovereign', 'reasoning', 'arabic'],
-  },
-  {
-    name: 'niyah:writer',
-    requiredRamGb: 3.5,
-    lobeAffinity: ['sensory'],
-    qualityScore: { cognitive: 60, executive: 65, sensory: 95 },
-    tags: ['sovereign', 'arabic', 'creative'],
-  },
-  {
-    name: 'niyah:v4',
-    requiredRamGb: 3.5,
-    lobeAffinity: ['executive', 'sensory'],
-    qualityScore: { cognitive: 65, executive: 80, sensory: 85 },
-    tags: ['sovereign', 'general'],
-  },
-  {
-    name: 'deepseek-r1:1.5b',
-    requiredRamGb: 3.5,
-    lobeAffinity: ['cognitive', 'executive'],
-    qualityScore: { cognitive: 78, executive: 72, sensory: 45 },
-    tags: ['reasoning', 'cot'],
-  },
-  {
-    name: 'deepseek-r1:8b',
-    requiredRamGb: 12,
-    lobeAffinity: ['cognitive'],
-    qualityScore: { cognitive: 92, executive: 80, sensory: 55 },
-    tags: ['reasoning', 'cot', 'heavy'],
-  },
-  {
-    name: 'llama3.2:3b',
-    requiredRamGb: 5,
-    lobeAffinity: ['executive'],
-    qualityScore: { cognitive: 70, executive: 88, sensory: 60 },
-    tags: ['general', 'fast'],
-  },
-  {
-    name: 'qwen2.5-coder:7b',
-    requiredRamGb: 10,
-    lobeAffinity: ['cognitive', 'executive'],
-    qualityScore: { cognitive: 90, executive: 85, sensory: 65 },
-    tags: ['code', 'multilingual'],
-  },
+  { name: 'niyah:sovereign', requiredRamGb: 5.5, lobeAffinity: ['cognitive'], qualityScore: { cognitive: 90 }, tags: ['local'] },
+  { name: 'niyah:writer', requiredRamGb: 3.5, lobeAffinity: ['sensory'], qualityScore: { sensory: 95 }, tags: ['local', 'arabic', 'creative'] },
+  { name: 'niyah:v4', requiredRamGb: 3.5, lobeAffinity: ['executive', 'sensory'], qualityScore: { executive: 80, sensory: 85 }, tags: ['local'] },
+  { name: 'deepseek-r1:1.5b', requiredRamGb: 3.5, lobeAffinity: ['cognitive', 'executive'], qualityScore: { cognitive: 78, executive: 72 }, tags: ['local', 'reasoning'] },
+  { name: 'deepseek-r1:8b', requiredRamGb: 12, lobeAffinity: ['cognitive'], qualityScore: { cognitive: 92 }, tags: ['local', 'reasoning'] },
+  { name: 'llama3.2:3b', requiredRamGb: 5, lobeAffinity: ['executive'], qualityScore: { executive: 88 }, tags: ['local', 'general'] },
+  { name: 'qwen2.5-coder:7b', requiredRamGb: 10, lobeAffinity: ['cognitive', 'executive'], qualityScore: { cognitive: 90, executive: 85 }, tags: ['local', 'code'] },
 ];
 
-// ─── Circuit Breaker ────────────────────────────────────────────────
-
-interface CircuitState {
-  failures: number;
-  lastFailure: number;
-  open: boolean;
-}
-
 class CircuitBreaker {
-  private circuits = new Map<string, CircuitState>();
+  private readonly states = new Map<string, { failures: number; lastFailure: number; open: boolean }>();
   private readonly threshold = 3;
   private readonly resetTimeMs = 30_000;
 
   canCall(key: string): boolean {
-    const c = this.circuits.get(key);
-    if (!c || !c.open) return true;
-    if (Date.now() - c.lastFailure > this.resetTimeMs) {
-      c.open = false;
-      c.failures = 0;
+    const state = this.states.get(key);
+    if (!state || !state.open) return true;
+    if (Date.now() - state.lastFailure >= this.resetTimeMs) {
+      this.states.delete(key);
       return true;
     }
     return false;
   }
 
-  recordSuccess(key: string) {
-    this.circuits.delete(key);
+  success(key: string): void {
+    this.states.delete(key);
   }
 
-  recordFailure(key: string) {
-    const c = this.circuits.get(key) ?? { failures: 0, lastFailure: 0, open: false };
-    c.failures++;
-    c.lastFailure = Date.now();
-    if (c.failures >= this.threshold) {
-      c.open = true;
-    }
-    this.circuits.set(key, c);
+  failure(key: string): void {
+    const state = this.states.get(key) ?? { failures: 0, lastFailure: 0, open: false };
+    state.failures += 1;
+    state.lastFailure = Date.now();
+    state.open = state.failures >= this.threshold;
+    this.states.set(key, state);
   }
 }
 
-// ─── Response Cache ─────────────────────────────────────────────────
-
 class ResponseCache {
-  private cache = new Map<string, { response: NiyahResponse; expiry: number }>();
+  private readonly cache = new Map<string, { response: NiyahResponse; expiresAt: number }>();
   private readonly ttlMs = 60_000;
   private readonly maxSize = 100;
 
-  private hash(query: string, lobe: LobeId): string {
-    let h = 0;
-    const key = `${lobe}:${query}`;
-    for (let i = 0; i < key.length; i++) {
-      h = ((h << 5) - h + key.charCodeAt(i)) | 0;
+  private key(query: string, lobe: LobeId): string {
+    const source = `${lobe}:${query}`;
+    let h = 2166136261;
+    for (let i = 0; i < source.length; i += 1) {
+      h ^= source.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
-    return h.toString(36);
+    return `${h >>> 0}`;
   }
 
   get(query: string, lobe: LobeId): NiyahResponse | null {
-    const key = this.hash(query, lobe);
-    const entry = this.cache.get(key);
-    if (entry && Date.now() < entry.expiry) {
-      return entry.response;
+    const cacheKey = this.key(query, lobe);
+    const entry = this.cache.get(cacheKey);
+    if (!entry) return null;
+    if (Date.now() >= entry.expiresAt) {
+      this.cache.delete(cacheKey);
+      return null;
     }
-    this.cache.delete(key);
-    return null;
+    return entry.response;
   }
 
-  set(query: string, lobe: LobeId, response: NiyahResponse) {
+  set(query: string, lobe: LobeId, response: NiyahResponse): void {
     if (this.cache.size >= this.maxSize) {
-      const oldest = this.cache.keys().next().value;
-      if (oldest) this.cache.delete(oldest);
+      const first = this.cache.keys().next();
+      if (!first.done) this.cache.delete(first.value);
     }
-    const key = this.hash(query, lobe);
-    this.cache.set(key, { response, expiry: Date.now() + this.ttlMs });
+    this.cache.set(this.key(query, lobe), { response, expiresAt: Date.now() + this.ttlMs });
   }
 }
 
-// ─── Arabic NLP ─────────────────────────────────────────────────────
-
-const ARABIC_RANGE = [0x0600, 0x06FF] as const;
+const ARABIC_RANGE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
 
 function detectDialect(text: string): Dialect {
-  const lower = text.toLowerCase();
-
-  const saudiMarkers = ['ابغى', 'وش', 'ليش', 'كذا', 'يالله', 'خلاص', 'طيب', 'ذا', 'سوي', 'والله'];
-  const khaleejiMarkers = ['شلونك', 'اشلون', 'خوش', 'هيج'];
-  const egyptianMarkers = ['ازاي', 'عايز', 'كده', 'بتاع', 'مش'];
-  const levantineMarkers = ['كيفك', 'شو', 'هيك', 'ازا'];
-
-  const check = (markers: string[]) => markers.filter(m => lower.includes(m)).length;
-
-  const scores = {
-    saudi: check(saudiMarkers),
-    khaliji: check(khaleejiMarkers),
-    egyptian: check(egyptianMarkers),
-    levantine: check(levantineMarkers),
+  const scores: Record<Exclude<Dialect, 'english' | 'mixed'>, number> = {
+    saudi: 0,
+    khaliji: 0,
+    egyptian: 0,
+    levantine: 0,
+    msa: 0,
   };
 
-  const maxScore = Math.max(...Object.values(scores));
-  if (maxScore === 0) {
-    const arCount = [...text].filter(c => {
-      const code = c.charCodeAt(0);
-      return code >= ARABIC_RANGE[0] && code <= ARABIC_RANGE[1];
-    }).length;
-    const ratio = arCount / Math.max(text.replace(/\s/g, '').length, 1);
-    if (ratio > 0.15) return 'msa';
-    if (ratio > 0) return 'mixed';
-    return 'english';
+  const rules: Array<[keyof typeof scores, RegExp]> = [
+    ['saudi', /ابغى|أبغى|وش|ليش|كذا|خلاص|طيب|ذا|سوي|والله|ودي|احس|أحس|مافي|هلا/],
+    ['khaliji', /شلون|اشلون|خوش|هيج|وايد|زين/],
+    ['egyptian', /إيه|ايه|عايز|ازيك|يعني|كده|دلوقتي|أهو|اهو/],
+    ['levantine', /كيفك|شو|هيك|بدي|عم|كتير|يسلمو|منيح/],
+  ];
+
+  for (const [dialect, rule] of rules) {
+    if (rule.test(text)) scores[dialect] += 1;
   }
 
-  const entries = Object.entries(scores) as [Dialect, number][];
-  entries.sort((a, b) => b[1] - a[1]);
-  return entries[0][0];
+  const winner = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  if (winner && winner[1] > 0) return winner[0] as Dialect;
+  return ARABIC_RANGE.test(text) ? 'msa' : 'english';
 }
 
 function detectTone(text: string): Tone {
-  const lower = text.toLowerCase();
-  if (/!{2,}|ضروري|عاجل|urgent|asap|now/i.test(text)) return 'urgent';
-  if (/سوي|اكتب|نفذ|build|write|create|deploy/i.test(lower)) return 'commanding';
-  if (/\?|ليش|كيف|وش|why|how|what/i.test(lower)) return 'curious';
-  if (/😊|🙂|يعطيك|شكراً|thanks/i.test(lower)) return 'friendly';
-  if (/رسمي|official|formal/i.test(lower)) return 'formal';
+  if (/!{2,}|ضروري|عاجل|urgent|asap|الآن|الحين/i.test(text)) return 'urgent';
+  if (/سوي|اكتب|نفذ|ابني|صلح|شغل|build|write|create|deploy|fix|execute/i.test(text)) return 'commanding';
+  if (/\?|ليش|لماذا|كيف|وش|why|how|what/i.test(text)) return 'curious';
+  if (/شكراً|شكرا|يعطيك|thanks|thank you/i.test(text)) return 'friendly';
+  if (/رسمي|formal|official/i.test(text)) return 'formal';
   return 'neutral';
 }
 
-// ─── Lobe Routing ───────────────────────────────────────────────────
-
-const COGNITIVE_TRIGGERS = [
-  'analyze', 'explain', 'compare', 'design', 'why', 'how does',
-  'architecture', 'evaluate', 'reason', 'debug', 'review', 'audit',
-  'threat', 'حلل', 'اشرح', 'قارن', 'صمم', 'لماذا', 'كيف', 'راجع',
+const SECURITY_TRIGGERS = [
+  'vulnerability', 'exploit', 'cve', 'pentest', 'scan', 'firewall', 'telemetry', 'ثغرة', 'اختراق', 'فحص', 'حماية',
 ];
-
+const COGNITIVE_TRIGGERS = [
+  'analyze', 'explain', 'compare', 'design', 'why', 'how does', 'architecture', 'evaluate', 'reason', 'debug', 'review', 'audit', 'threat',
+  'حلل', 'اشرح', 'قارن', 'صمم', 'لماذا', 'كيف', 'راجع',
+];
 const EXECUTIVE_TRIGGERS = [
-  'write', 'create', 'build', 'implement', 'fix', 'deploy', 'generate',
-  'code', 'script', 'install', 'run', 'execute', 'compile', 'push',
+  'write', 'create', 'build', 'implement', 'fix', 'deploy', 'generate', 'code', 'script', 'install', 'run', 'execute', 'compile',
   'اكتب', 'أنشئ', 'ابني', 'نفذ', 'صلح', 'شغل', 'سوي', 'ابغى',
 ];
 
-const SECURITY_TRIGGERS = [
-  'vulnerability', 'exploit', 'cve', 'pentest', 'scan', 'firewall',
-  'phalanx', 'telemetry', 'block', 'ثغرة', 'اختراق', 'فحص', 'حماية',
-];
+function includesAny(text: string, terms: string[]): boolean {
+  const lower = text.toLowerCase();
+  return terms.some((term) => lower.includes(term.toLowerCase()));
+}
 
 function routeToLobe(query: string, dialect: Dialect): { lobe: LobeId; task: TaskType } {
-  const lower = query.toLowerCase();
-
-  if (SECURITY_TRIGGERS.some(t => lower.includes(t))) {
-    return { lobe: 'cognitive', task: 'security_audit' };
-  }
-  if (COGNITIVE_TRIGGERS.some(t => lower.includes(t))) {
-    return { lobe: 'cognitive', task: 'code_review' };
-  }
-  if (EXECUTIVE_TRIGGERS.some(t => lower.includes(t))) {
-    return { lobe: 'executive', task: 'code_gen' };
-  }
-  if (['saudi', 'khaliji', 'egyptian', 'levantine', 'msa'].includes(dialect)) {
-    return { lobe: 'sensory', task: 'arabic_nlp' };
-  }
+  if (includesAny(query, SECURITY_TRIGGERS)) return { lobe: 'cognitive', task: 'security_audit' };
+  if (includesAny(query, COGNITIVE_TRIGGERS)) return { lobe: 'cognitive', task: 'architecture' };
+  if (includesAny(query, EXECUTIVE_TRIGGERS)) return { lobe: 'executive', task: 'code_gen' };
+  if (dialect !== 'english') return { lobe: 'sensory', task: 'arabic_nlp' };
   return { lobe: 'executive', task: 'general' };
 }
 
-// ─── Model Selection ────────────────────────────────────────────────
-
-function selectModel(
-  lobe: LobeId,
-  availableModels: string[],
-  maxRamGb: number = 16
-): string {
+function selectModel(lobe: LobeId, availableModels: string[], maxRamGb: number): string | null {
   const available = new Set(availableModels);
   const candidates = MODEL_SPECS
-    .filter(m => available.has(m.name) && m.requiredRamGb <= maxRamGb)
+    .filter((model) => available.has(model.name) && model.requiredRamGb <= maxRamGb)
     .sort((a, b) => {
-      const affinityA = a.lobeAffinity.includes(lobe) ? 1 : 0;
-      const affinityB = b.lobeAffinity.includes(lobe) ? 1 : 0;
-      if (affinityA !== affinityB) return affinityB - affinityA;
-      return b.qualityScore[lobe] - a.qualityScore[lobe];
+      const affinity = Number(b.lobeAffinity.includes(lobe)) - Number(a.lobeAffinity.includes(lobe));
+      if (affinity !== 0) return affinity;
+      return (b.qualityScore[lobe] ?? 0) - (a.qualityScore[lobe] ?? 0);
     });
 
-  return candidates[0]?.name ?? availableModels[0] ?? 'deepseek-r1:1.5b';
+  return candidates[0]?.name ?? null;
 }
 
-// ─── System Prompts ─────────────────────────────────────────────────
-
 const SYSTEM_PROMPTS: Record<LobeId, string> = {
-  sensory: `أنت نيّة (NIYAH) — الفص الحسي. تخصصك فهم اللغة العربية بلهجاتها (سعودي، خليجي، مصري، شامي، فصحى).
-حلل نية المستخدم، اكتشف اللهجة والنبرة، وقدم إجابات طبيعية ودقيقة.
-لا تخترع معلومات. إذا لم تعلم قل "لا أعلم".
-
-  cognitive: `You are NIYAH — Cognitive Lobe. Specialty: deep reasoning, chain-of-thought analysis,
-architecture design, code review, security auditing, and comparative analysis.
-Think step by step. Never fabricate. If uncertain, say so.
-Consider Saudi context: PDPL, NCA-ECC, Vision 2030.
-
-  executive: `You are NIYAH — Executive Lobe. Specialty: code generation, task execution,
-deployment scripts, and system building. Write clean, production-grade code.
-Languages: TypeScript, Python, Rust, Bash. Frameworks: React, Vite, Tauri.
-Use the model provider and execution mode selected in the configuration.
-`,
+  sensory: 'You are Niyah Sensory. Identify language and intent accurately. Preserve the user language. Do not invent facts.',
+  cognitive: 'You are Niyah Cognitive. Analyze carefully, verify assumptions from available context, and produce a concise evidence-based answer. Do not fabricate.',
+  executive: 'You are Niyah Executive. Execute the requested task directly. For code, return production-quality code. Do not claim execution unless execution actually occurred.',
 };
-
-// ─── Identity Guard ─────────────────────────────────────────────────
-
-const ID_TRIGGERS = [
-  'are you', 'who are you', 'what are you', 'r u',
-  
-  'هل أنت', 'هل انت', 'من صنعك', 'من أنت', 'من انت',
-  'ايش انت', 'مين انت',
-];
-
-const IDENTITY_RESPONSE = {
-  en: `NIYAH is an orchestration and Arabic-language processing component supporting configured local and cloud model providers.`,
-  ar: `نيّة مكوّن لتوجيه النماذج ومعالجة المدخلات العربية، ويدعم مزودي النماذج المحليين والسحابيين وفق الإعدادات.`,
-};
-
-// ─── Engine ─────────────────────────────────────────────────────────
 
 export class NiyahEngineV5 {
-  private ollamaUrl: string;
+  private readonly ollamaUrl: string;
   private models: string[] = [];
-  private circuit = new CircuitBreaker();
-  private cache = new ResponseCache();
-  private maxRamGb: number;
+  private readonly circuit = new CircuitBreaker();
+  private readonly cache = new ResponseCache();
+  private readonly maxRamGb: number;
   private sessionCounter = 0;
 
   constructor(ollamaUrl = 'http://localhost:11434', maxRamGb = 16) {
     this.ollamaUrl = ollamaUrl.replace(/\/$/, '');
-    this.maxRamGb = maxRamGb;
+    this.maxRamGb = Number.isFinite(maxRamGb) && maxRamGb > 0 ? maxRamGb : 16;
   }
 
   async init(): Promise<void> {
@@ -376,21 +229,20 @@ export class NiyahEngineV5 {
 
   private async fetchModels(): Promise<string[]> {
     try {
-      const res = await fetch(`${this.ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
-      const data = await res.json();
-      return (data.models ?? []).map((m: any) => m.name as string);
+      const response = await fetch(`${this.ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return [];
+      const data = await response.json() as { models?: Array<{ name?: string }> };
+      return (data.models ?? []).map((model) => model.name).filter((name): name is string => Boolean(name));
     } catch {
       return [];
     }
   }
 
-  private async generate(model: string, prompt: string, system: string): Promise<string> {
-    if (!this.circuit.canCall(model)) {
-      throw new Error(`Circuit open for ${model}`);
-    }
+  private async generate(model: string, prompt: string, system: string): Promise<{ text: string; tokensUsed: number }> {
+    if (!this.circuit.canCall(model)) throw new Error(`model temporarily unavailable: ${model}`);
 
     try {
-      const res = await fetch(`${this.ollamaUrl}/api/generate`, {
+      const response = await fetch(`${this.ollamaUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -408,98 +260,88 @@ export class NiyahEngineV5 {
         signal: AbortSignal.timeout(120_000),
       });
 
-      const data = await res.json();
-      this.circuit.recordSuccess(model);
-      return data.response ?? '';
-    } catch (err) {
-      this.circuit.recordFailure(model);
-      throw err;
+      if (!response.ok) throw new Error(`ollama HTTP ${response.status}`);
+      const data = await response.json() as { response?: string; eval_count?: number; prompt_eval_count?: number };
+      this.circuit.success(model);
+      return {
+        text: (data.response ?? '').trim(),
+        tokensUsed: (data.eval_count ?? 0) + (data.prompt_eval_count ?? 0),
+      };
+    } catch (error) {
+      this.circuit.failure(model);
+      throw error;
     }
   }
 
-  async query(
-    input: string,
-    forceLobe?: LobeId,
-    sessionId?: string,
-  ): Promise<NiyahResponse> {
-    const t0 = performance.now();
+  async query(input: string, forceLobe?: LobeId, sessionId?: string): Promise<NiyahResponse> {
+    const started = performance.now();
+    const cleanInput = input.trim();
     const sid = sessionId ?? `niyah-${++this.sessionCounter}`;
+    const dialect = detectDialect(cleanInput);
+    const tone = detectTone(cleanInput);
 
-    const dialect = detectDialect(input);
-    const tone = detectTone(input);
-
-    // Identity guard
-    const lower = input.toLowerCase();
-    if (ID_TRIGGERS.some(t => lower.includes(t))) {
-      const lang = dialect === 'english' ? 'en' : 'ar';
+    if (!cleanInput) {
       return {
-        text: IDENTITY_RESPONSE[lang],
-        lobe: 'executive',
-        model: 'niyah-identity',
-        latencyMs: Math.round(performance.now() - t0),
-        tokensUsed: 0,
+        text: dialect === 'english' ? 'Input is empty.' : 'المدخل فارغ.',
+        lobe: 'sensory', model: 'niyah-validator', latencyMs: Math.round(performance.now() - started), tokensUsed: 0,
         sessionId: sid,
-        vector: {
-          intent: 'identity_query',
-          confidence: 1,
-          dialect,
-          tone,
-          domain: 'general',
-          roots: [],
-          flags: { sovereign: true, deepMode: false, urgent: false, creative: false },
-        },
+        vector: { intent: 'empty_input', confidence: 1, dialect, tone, domain: 'general', roots: [], flags: { sovereign: true, deepMode: false, urgent: false, creative: false } },
         sovereign: true,
       };
     }
 
-    const { lobe, task } = routeToLobe(input, dialect);
-    const activeLobe = forceLobe ?? lobe;
-
-    // Check cache
-    const cached = this.cache.get(input, activeLobe);
-    if (cached) {
-      return { ...cached, latencyMs: Math.round(performance.now() - t0) };
-    }
+    const routed = routeToLobe(cleanInput, dialect);
+    const activeLobe = forceLobe ?? routed.lobe;
+    const cached = this.cache.get(cleanInput, activeLobe);
+    if (cached) return { ...cached, latencyMs: Math.round(performance.now() - started) };
 
     const model = selectModel(activeLobe, this.models, this.maxRamGb);
-    const systemPrompt = SYSTEM_PROMPTS[activeLobe];
-
-    let text: string;
-    try {
-      text = await this.generate(model, `User: ${input}\nNIYAH:`, systemPrompt);
-      text = text.trim() || (dialect === 'english' ? "I don't have enough information." : 'لا أعلم.');
-    } catch (err) {
-      text = dialect === 'english'
-        ? `Error communicating with Ollama: ${err}`
-        : `خطأ في الاتصال بـ Ollama: ${err}`;
+    if (!model) {
+      const text = dialect === 'english'
+        ? 'No compatible local model is installed.'
+        : 'لا يوجد نموذج محلي متوافق مثبت حاليًا.';
+      return {
+        text,
+        lobe: activeLobe,
+        model: 'none',
+        latencyMs: Math.round(performance.now() - started),
+        tokensUsed: 0,
+        sessionId: sid,
+        vector: { intent: routed.task, confidence: 0.95, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: false, urgent: tone === 'urgent', creative: false } },
+        sovereign: true,
+      };
     }
 
-    const response: NiyahResponse = {
-      text,
-      lobe: activeLobe,
-      model,
-      latencyMs: Math.round(performance.now() - t0),
-      tokensUsed: 0,
-      sessionId: sid,
-      vector: {
-        intent: task,
-        confidence: 0.85,
-        dialect,
-        tone,
-        domain: task,
-        roots: [],
-        flags: {
-          sovereign: true,
-          deepMode: false,
-          urgent: tone === 'urgent',
-          creative: task === 'general',
-        },
-      },
-      sovereign: true,
-    };
-
-    this.cache.set(input, activeLobe, response);
-    return response;
+    try {
+      const generated = await this.generate(model, `User: ${cleanInput}\nNiyah:`, SYSTEM_PROMPTS[activeLobe]);
+      const text = generated.text || (dialect === 'english' ? 'I do not have enough information.' : 'لا أعلم.');
+      const response: NiyahResponse = {
+        text,
+        lobe: activeLobe,
+        model,
+        latencyMs: Math.round(performance.now() - started),
+        tokensUsed: generated.tokensUsed,
+        sessionId: sid,
+        vector: { intent: routed.task, confidence: 0.85, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: activeLobe === 'cognitive', urgent: tone === 'urgent', creative: false } },
+        sovereign: true,
+      };
+      this.cache.set(cleanInput, activeLobe, response);
+      return response;
+    } catch (error) {
+      const text = dialect === 'english'
+        ? `Local model error: ${error instanceof Error ? error.message : String(error)}`
+        : `خطأ في النموذج المحلي: ${error instanceof Error ? error.message : String(error)}`;
+      return {
+        text,
+        lobe: activeLobe,
+        model,
+        latencyMs: Math.round(performance.now() - started),
+        tokensUsed: 0,
+        sessionId: sid,
+        vector: { intent: routed.task, confidence: 0.5, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: activeLobe === 'cognitive', urgent: tone === 'urgent', creative: false } },
+        sovereign: true,
+      };
+    }
   }
 
   get availableModels(): string[] {
@@ -507,15 +349,11 @@ export class NiyahEngineV5 {
   }
 
   get version(): string {
-    return '5.0.0';
+    return '5.0.1';
   }
 
   health(): { status: string; models: number; version: string } {
-    return {
-      status: this.models.length > 0 ? 'sovereign' : 'offline',
-      models: this.models.length,
-      version: this.version,
-    };
+    return { status: this.models.length > 0 ? 'ready' : 'offline', models: this.models.length, version: this.version };
   }
 }
 
