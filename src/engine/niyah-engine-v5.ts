@@ -200,11 +200,7 @@ export class NiyahEngineV5 {
 
   get availableModels(): ModelDescriptor[] { return this.models.map((model) => ({ ...model, capabilities: { ...model.capabilities } })); }
   get hardware(): HardwareProfile { return hardwareProfile(); }
-  health(): { status: 'ready' | 'offline'; provider: string; locality: 'local' | 'cloud'; models: number; version: string } {
-    return { status: this.models.length > 0 ? 'ready' : 'offline', provider: this.provider.name, locality: this.provider.locality, models: this.models.length, version: this.version };
-  }
-  private unavailable(text: string, sessionId: string, vector: IntentVector, started: number, model?: ModelDescriptor, executionStatus: 'error' | 'unavailable' = 'unavailable'): NiyahResponse {
-    return { text, provider: this.provider.name, model: model?.name ?? 'none', locality: this.provider.locality, lobe: vector.lobeForTask ?? this.lobeForTask(vector.intent), latencyMs: Math.round(performance.now() - started), tokenUsage: null, fallback: false, executionStatus, sessionId, vector } as NiyahResponse;
-  }
+  health(): { status: 'ready' | 'offline'; provider: string; locality: 'local' | 'cloud'; models: number; version: string } { return { status: this.models.length > 0 ? 'ready' : 'offline', provider: this.provider.name, locality: this.provider.locality, models: this.models.length, version: this.version }; }
+  private unavailable(text: string, sessionId: string, vector: IntentVector, started: number, model?: ModelDescriptor, executionStatus: 'error' | 'unavailable' = 'unavailable'): NiyahResponse { return { text, provider: this.provider.name, model: model?.name ?? 'none', locality: this.provider.locality, lobe: this.lobeForTask(vector.intent), latencyMs: Math.round(performance.now() - started), tokenUsage: null, fallback: false, executionStatus, sessionId, vector }; }
   private lobeForTask(task: TaskType): LobeId { return task === 'arabic_nlp' || task === 'general' ? 'sensory' : task === 'security_audit' || task === 'architecture' || task === 'chat' ? 'cognitive' : 'executive'; }
 }
