@@ -13,9 +13,10 @@ export type TaskType =
 export type Dialect = 'saudi' | 'khaliji' | 'egyptian' | 'levantine' | 'msa' | 'english' | 'mixed';
 export type Tone = 'commanding' | 'friendly' | 'formal' | 'angry' | 'curious' | 'playful' | 'urgent' | 'neutral';
 
-export interface NiyahVector {
-  intent: string;
-  confidence: number;
+export interface IntentVector {
+  intent: TaskType;
+  /** Routing confidence in [0,1], derived from matched-rule strength. Null when no signal exists. */
+  confidence: number | null;
   dialect: Dialect;
   tone: Tone;
   domain: TaskType;
@@ -28,16 +29,6 @@ export interface NiyahVector {
   };
 }
 
-export interface LobeResult {
-  lobe: LobeId;
-  model: string;
-  content: string;
-  latencyMs: number;
-  tokensUsed: number;
-  success: boolean;
-  error?: string;
-}
-
 export interface NiyahResponse {
   text: string;
   lobe: LobeId;
@@ -45,7 +36,7 @@ export interface NiyahResponse {
   latencyMs: number;
   tokensUsed: number;
   sessionId: string;
-  vector: NiyahVector;
+  vector: IntentVector;
   sovereign: boolean;
 }
 
@@ -178,17 +169,41 @@ const EXECUTIVE_TRIGGERS = [
   'اكتب', 'أنشئ', 'ابني', 'نفذ', 'صلح', 'شغل', 'سوي', 'ابغى',
 ];
 
-function includesAny(text: string, terms: string[]): boolean {
+function countMatches(text: string, terms: string[]): number {
   const lower = text.toLowerCase();
-  return terms.some((term) => lower.includes(term.toLowerCase()));
+  return terms.reduce((count, term) => count + (lower.includes(term.toLowerCase()) ? 1 : 0), 0);
 }
 
-function routeToLobe(query: string, dialect: Dialect): { lobe: LobeId; task: TaskType } {
-  if (includesAny(query, SECURITY_TRIGGERS)) return { lobe: 'cognitive', task: 'security_audit' };
-  if (includesAny(query, COGNITIVE_TRIGGERS)) return { lobe: 'cognitive', task: 'architecture' };
-  if (includesAny(query, EXECUTIVE_TRIGGERS)) return { lobe: 'executive', task: 'code_gen' };
-  if (dialect !== 'english') return { lobe: 'sensory', task: 'arabic_nlp' };
-  return { lobe: 'executive', task: 'general' };
+/**
+ * Deterministic rule-based routing confidence.
+ * Not a model-derived probability: it reflects how many independent keyword
+ * rules agreed on the same lobe. 0 matches -> null (unknown), more matches
+ * -> higher confidence, capped below 1 because keyword rules are never certain.
+ */
+function ruleConfidence(matchCount: number): number | null {
+  if (matchCount <= 0) return null;
+  return Math.min(0.5 + matchCount * 0.12, 0.95);
+}
+
+function routeToLobe(query: string, dialect: Dialect): { lobe: LobeId; task: TaskType; confidence: number | null } {
+  const securityMatches = countMatches(query, SECURITY_TRIGGERS);
+  if (securityMatches > 0) {
+    return { lobe: 'cognitive', task: 'security_audit', confidence: ruleConfidence(securityMatches) };
+  }
+  const cognitiveMatches = countMatches(query, COGNITIVE_TRIGGERS);
+  if (cognitiveMatches > 0) {
+    return { lobe: 'cognitive', task: 'architecture', confidence: ruleConfidence(cognitiveMatches) };
+  }
+  const executiveMatches = countMatches(query, EXECUTIVE_TRIGGERS);
+  if (executiveMatches > 0) {
+    return { lobe: 'executive', task: 'code_gen', confidence: ruleConfidence(executiveMatches) };
+  }
+  if (dialect !== 'english') {
+    // Dialect detection itself already required a matched marker rule (see detectDialect),
+    // so route confidence mirrors that one signal rather than inventing a new number.
+    return { lobe: 'sensory', task: 'arabic_nlp', confidence: dialect === 'msa' ? null : ruleConfidence(1) };
+  }
+  return { lobe: 'executive', task: 'general', confidence: null };
 }
 
 function selectModel(lobe: LobeId, availableModels: string[], maxRamGb: number): string | null {
@@ -250,12 +265,6 @@ export class NiyahEngineV5 {
           prompt,
           system,
           stream: false,
-          options: {
-            temperature: 0.3,
-            num_predict: 4096,
-            top_p: 0.85,
-            repeat_penalty: 1.15,
-          },
         }),
         signal: AbortSignal.timeout(120_000),
       });
@@ -285,7 +294,7 @@ export class NiyahEngineV5 {
         text: dialect === 'english' ? 'Input is empty.' : 'المدخل فارغ.',
         lobe: 'sensory', model: 'niyah-validator', latencyMs: Math.round(performance.now() - started), tokensUsed: 0,
         sessionId: sid,
-        vector: { intent: 'empty_input', confidence: 1, dialect, tone, domain: 'general', roots: [], flags: { sovereign: true, deepMode: false, urgent: false, creative: false } },
+        vector: { intent: 'general', confidence: 1, dialect, tone, domain: 'general', roots: [], flags: { sovereign: true, deepMode: false, urgent: false, creative: false } },
         sovereign: true,
       };
     }
@@ -307,7 +316,7 @@ export class NiyahEngineV5 {
         latencyMs: Math.round(performance.now() - started),
         tokensUsed: 0,
         sessionId: sid,
-        vector: { intent: routed.task, confidence: 0.95, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: false, urgent: tone === 'urgent', creative: false } },
+        vector: { intent: routed.task, confidence: routed.confidence, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: false, urgent: tone === 'urgent', creative: false } },
         sovereign: true,
       };
     }
@@ -322,7 +331,7 @@ export class NiyahEngineV5 {
         latencyMs: Math.round(performance.now() - started),
         tokensUsed: generated.tokensUsed,
         sessionId: sid,
-        vector: { intent: routed.task, confidence: 0.85, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: activeLobe === 'cognitive', urgent: tone === 'urgent', creative: false } },
+        vector: { intent: routed.task, confidence: routed.confidence, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: activeLobe === 'cognitive', urgent: tone === 'urgent', creative: false } },
         sovereign: true,
       };
       this.cache.set(cleanInput, activeLobe, response);
@@ -338,7 +347,7 @@ export class NiyahEngineV5 {
         latencyMs: Math.round(performance.now() - started),
         tokensUsed: 0,
         sessionId: sid,
-        vector: { intent: routed.task, confidence: 0.5, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: activeLobe === 'cognitive', urgent: tone === 'urgent', creative: false } },
+        vector: { intent: routed.task, confidence: routed.confidence, dialect, tone, domain: routed.task, roots: [], flags: { sovereign: true, deepMode: activeLobe === 'cognitive', urgent: tone === 'urgent', creative: false } },
         sovereign: true,
       };
     }
@@ -349,12 +358,10 @@ export class NiyahEngineV5 {
   }
 
   get version(): string {
-    return '5.0.1';
+    return '5.0.2';
   }
 
   health(): { status: string; models: number; version: string } {
     return { status: this.models.length > 0 ? 'ready' : 'offline', models: this.models.length, version: this.version };
   }
 }
-
-export default NiyahEngineV5;
