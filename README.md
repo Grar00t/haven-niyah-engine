@@ -1,37 +1,37 @@
-# HAVEN Niyah Engine
+# Niyah Engine
 
-Arabic-language intent analysis and hybrid model orchestration components for HAVEN.
-
-[Website](https://khawrizm.com) · [YouTube](https://youtube.com/@saudicyper) · [X/Twitter](https://x.com/khawrzm)
+Arabic-language intent analysis and local model orchestration components.
 
 ## Components
 
 | Component | Description |
 |-----------|-------------|
-| NiyahEngine | Core AI orchestration/routing layer |
+| NiyahEngine | Core intent analysis and model routing layer |
 | SovereignBridge | QEMU sandboxing, process isolation, IPC |
 | SovereignSessionCleaner | Session state management with AES-256-GCM encryption |
-| CacheAndGraphImprovements | LRU cache + intent graph tracking |
+| CacheAndGraphImprovements | LRU cache and intent graph tracking |
 | arabic-roots-expanded | Arabic word-form/root data tables |
 | useNiyah.tsx | React hook for streaming responses |
-| niyah-route.ts | Next.js/Express API handlers |
+| niyah-route.ts | API handlers |
 | i18n.ts | Multi-language locale support |
-| Tests | Test scaffold covering the above modules |
+| Tests | Automated test scaffold |
 
-Repository includes TypeScript and Python implementation components.
+## Architecture
 
-## بالعربي
+Niyah separates request analysis from model execution:
 
-مشروع لتطوير أدوات ذكاء اصطناعي مع دعم اللغة العربية والنماذج المحلية والسحابية.
+- Sensory: language, dialect, and input analysis
+- Executive: task routing and model selection
+- Cognitive: reasoning and validation
+- Runtime: local model execution through configured providers
 
-- **HAVEN IDE** — مكونات لبيئة تطوير مدعومة بالذكاء الاصطناعي
-- **NiyahEngine** — طبقة توجيه/تنسيق نماذج الذكاء الاصطناعي
-- **KhawrizmOS** — مشروع نظام تشغيل ARM64 قيد التطوير
+The default local runtime is Ollama. Cloud providers are optional configuration choices.
 
 ## Security
 
 - AES-256-GCM session encryption
-- QEMU virtual-machine management components
+- QEMU-based isolation components
+- Local-first model execution support
 
 ## License
 
