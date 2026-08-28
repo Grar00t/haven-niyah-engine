@@ -1,0 +1,1 @@
+{"name":"niyah-engine","version":"5.1.0","private":true,"type":"module","scripts":{"typecheck":"tsc --noEmit","test":"vitest run"},"devDependencies":{"@types/node":"^24.3.0","@types/react":"^19.1.10","react":"^19.1.1","typescript":"^5.9.2","vitest":"^3.2.4"}}
