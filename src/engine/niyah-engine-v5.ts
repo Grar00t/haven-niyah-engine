@@ -124,6 +124,10 @@ function errorKind(error: unknown): ProviderErrorClass | null {
   return kind === 'timeout' || kind === 'connection' || kind === 'http' || kind === 'malformed_response' || kind === 'invalid_model' || kind === 'configuration' ? kind : null;
 }
 
+function isTransportFailure(kind: ProviderErrorClass | null): boolean {
+  return kind === 'timeout' || kind === 'connection' || kind === 'http' || kind === 'malformed_response';
+}
+
 export class NiyahEngineV5 {
   readonly version = '5.1.0';
   private readonly provider: ModelProvider;
@@ -174,23 +178,25 @@ export class NiyahEngineV5 {
       return response;
     } catch (error) {
       const kind = errorKind(error);
-      if (kind === 'timeout' || kind === 'connection' || kind === 'http' || kind === 'malformed_response') this.circuit.recordTransportFailure(circuitKey);
-      const fallback = selectModel(classification.task, classification.language, this.models.filter((model) => model.name !== selected.name), undefined, hardware);
-      if (fallback) {
-        const fallbackKey = `${this.provider.name}:${fallback.name}`;
-        if (this.circuit.canCall(fallbackKey)) {
-          try {
-            const generated = await this.provider.generate({ model: fallback.name, system, messages, maxOutputTokens, signal: options.signal });
-            const cleaned = cleanResponse(generated.text, defaultQualityLimits(classification.task));
-            if (!validateResponse(cleaned).ok) throw new Error('provider output invalid');
-            const response: NiyahResponse = { text: cleaned, provider: this.provider.name, model: fallback.name, locality: this.provider.locality, lobe: classification.lobe, latencyMs: Math.round(performance.now() - started), tokenUsage: generated.usage, fallback: true, executionStatus: 'ok', sessionId, vector };
-            this.circuit.recordSuccess(fallbackKey);
-            this.sessions.append(sessionId, { role: 'user', content: normalized });
-            this.sessions.append(sessionId, { role: 'assistant', content: cleaned });
-            return response;
-          } catch (fallbackError) {
-            const fallbackKind = errorKind(fallbackError);
-            if (fallbackKind === 'timeout' || fallbackKind === 'connection' || fallbackKind === 'http' || fallbackKind === 'malformed_response') this.circuit.recordTransportFailure(fallbackKey);
+      if (isTransportFailure(kind)) {
+        this.circuit.recordTransportFailure(circuitKey);
+        const fallback = selectModel(classification.task, classification.language, this.models.filter((model) => model.name !== selected.name), undefined, hardware);
+        if (fallback) {
+          const fallbackKey = `${this.provider.name}:${fallback.name}`;
+          if (this.circuit.canCall(fallbackKey)) {
+            try {
+              const generated = await this.provider.generate({ model: fallback.name, system, messages, maxOutputTokens, signal: options.signal });
+              const cleaned = cleanResponse(generated.text, defaultQualityLimits(classification.task));
+              if (!validateResponse(cleaned).ok) throw new Error('provider output invalid');
+              const response: NiyahResponse = { text: cleaned, provider: this.provider.name, model: fallback.name, locality: this.provider.locality, lobe: classification.lobe, latencyMs: Math.round(performance.now() - started), tokenUsage: generated.usage, fallback: true, executionStatus: 'ok', sessionId, vector };
+              this.circuit.recordSuccess(fallbackKey);
+              this.sessions.append(sessionId, { role: 'user', content: normalized });
+              this.sessions.append(sessionId, { role: 'assistant', content: cleaned });
+              return response;
+            } catch (fallbackError) {
+              const fallbackKind = errorKind(fallbackError);
+              if (isTransportFailure(fallbackKind)) this.circuit.recordTransportFailure(fallbackKey);
+            }
           }
         }
       }

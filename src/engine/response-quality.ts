@@ -9,7 +9,27 @@ export function defaultQualityLimits(task: string): QualityLimits {
 export function cleanResponse(input: string, limits: QualityLimits): string {
   let text = input.replace(/^\s*(sure|certainly|of course)\s*[,!:\-]?\s*/i, '').trim();
   if (!text) return '';
-  const paragraphs = text.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
+
+  const cleanedSegments: string[] = [];
+  let remainingSentences = limits.maxSentences;
+  for (const segment of text.split(/(```[\s\S]*?```)/g)) {
+    if (!segment) continue;
+    if (segment.startsWith('```') && segment.endsWith('```')) {
+      cleanedSegments.push(segment);
+      continue;
+    }
+    const cleaned = cleanProse(segment, remainingSentences);
+    remainingSentences -= cleaned.sentencesUsed;
+    if (cleaned.text) cleanedSegments.push(cleaned.text);
+  }
+
+  text = cleanedSegments.join('\n\n');
+  if (text.length > limits.maxCharacters) text = `${text.slice(0, limits.maxCharacters).trim()}…`;
+  return text.trim();
+}
+
+function cleanProse(input: string, maxSentences: number): { text: string; sentencesUsed: number } {
+  const paragraphs = input.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
   const uniqueParagraphs: string[] = [];
   const seen = new Set<string>();
   for (const paragraph of paragraphs) {
@@ -19,8 +39,8 @@ export function cleanResponse(input: string, limits: QualityLimits): string {
       uniqueParagraphs.push(paragraph);
     }
   }
-  text = uniqueParagraphs.join('\n\n');
-  const sentences = text.match(/[^.!?؟]+[.!?؟]+|[^.!?؟]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+
+  const sentences = uniqueParagraphs.join('\n\n').match(/[^.!?؟]+[.!?؟]+|[^.!?؟]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
   const uniqueSentences: string[] = [];
   let previous = '';
   for (const sentence of sentences) {
@@ -28,10 +48,9 @@ export function cleanResponse(input: string, limits: QualityLimits): string {
     if (normalized !== previous) uniqueSentences.push(sentence);
     previous = normalized;
   }
-  text = uniqueSentences.join(' ');
-  if (uniqueSentences.length > limits.maxSentences) text = uniqueSentences.slice(0, limits.maxSentences).join(' ');
-  if (text.length > limits.maxCharacters) text = `${text.slice(0, limits.maxCharacters).trim()}…`;
-  return text.trim();
+
+  const selected = uniqueSentences.slice(0, Math.max(0, maxSentences));
+  return { text: selected.join(' '), sentencesUsed: selected.length };
 }
 
 export function validateResponse(text: string): { ok: boolean; reason?: 'empty' | 'repetition' } {

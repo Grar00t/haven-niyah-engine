@@ -36,6 +36,7 @@ describe('classification', () => {
     expect(detectLanguage('اكتب function')).toBe('mixed');
   });
   it('does not assert a dialect for plain MSA', () => expect(detectDialect('هذا نص عربي فصيح')).toBe('msa'));
+  it('does not match dialect markers inside a longer Arabic word', () => expect(detectDialect('مذاهب متعددة')).toBe('msa'));
   it('recognizes normalized Saudi markers', () => expect(detectDialect('أبغى وش تسوي')).toBe('saudi'));
   it('requires combined evidence for code generation', () => expect(classify('write a TypeScript function')).toMatchObject({ task: 'code_gen', lobe: 'executive', confidence: null }));
   it('keeps incidental why wording as explanatory chat', () => expect(classify('why is this function slow?')).toMatchObject({ task: 'chat', lobe: 'cognitive' }));
@@ -44,6 +45,10 @@ describe('classification', () => {
 
 describe('response quality', () => {
   it('removes boilerplate and duplicate paragraphs', () => expect(cleanResponse('Sure, here is the answer.\n\nAnswer.\n\nAnswer.', { maxCharacters: 1000, maxSentences: 10 })).toBe('here is the answer. Answer.'));
+  it('preserves fenced code while cleaning surrounding prose', () => {
+    const code = '```ts\nconst value = api.client.call();\n```';
+    expect(cleanResponse(`Sure, use this.\n\n${code}\n\nDone.`, { maxCharacters: 1000, maxSentences: 10 })).toBe(`use this.\n\n${code}\n\nDone.`);
+  });
   it('rejects empty output', () => expect(validateResponse('   ')).toEqual({ ok: false, reason: 'empty' }));
   it('rejects repeated final sentences', () => expect(validateResponse('one. same. same. same.')).toEqual({ ok: false, reason: 'repetition' }));
 });
@@ -93,12 +98,12 @@ describe('engine execution', () => {
     expect(sequence[0]).not.toBe(sequence[1]);
   });
 
-  it('does not count application validation failure as transport failure', async () => {
+  it('does not fall back after an application validation failure', async () => {
     let calls = 0;
     const { engine, provider } = await makeEngine(async () => {
       calls += 1;
       return { text: '', usage: { prompt: 1, completion: 0, total: 1, estimated: false } };
-    }, [model('only', { speed: 'fast' })]);
+    }, [model('primary', { speed: 'fast' }), model('secondary', { speed: 'slow' })]);
     const response = await engine.query('hello', 'empty-1');
     expect(response.executionStatus).toBe('error');
     expect(response.fallback).toBe(false);
