@@ -23,7 +23,7 @@ const TRANSLATE_RE = /\btranslate|translation\b|ترجم|ترجمة/i;
 const SUMMARIZE_RE = /\bsummarize|summary|tl;dr\b|لخص|تلخيص/i;
 const PLAN_RE = /\bplan|roadmap|steps|strategy\b|خطة|خطوات|استراتيجية/i;
 const ARCH_RE = /\barchitecture|design|system design|tradeoff|evaluate\b|معمارية|تصميم|قيّم|تقييم/i;
-const WHY_RE = /\bwhy|how does|explain|what is|compare\b|لماذا|كيف|اشرح|مؓ هو|قارن/i;
+const WHY_RE = /\bwhy|how does|explain|what is|compare\b|لماذا|كيف|اشرح|ما هو|قارن/i;
 
 function boundedTerms(terms: string): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{M}])(?:${terms})(?![\\p{L}\\p{M}])`, 'u');
@@ -33,7 +33,7 @@ const DIALECT_RULES: Array<{ dialect: Exclude<Dialect, 'english' | 'mixed'>; ter
   { dialect: 'saudi', terms: boundedTerms('ابغى|وش|ليش|كذا|خلاص|طيب|ذا|سوي|والله|ودي|احس|مافي|هلا|الحين|مره') },
   { dialect: 'khaliji', terms: boundedTerms('شلون|اشلون|خوش|وايد|زين|هيج|ابي|يبغالي') },
   { dialect: 'egyptian', terms: boundedTerms('عايز|عاوزه|ايه|ازيك|كده|دلوقتي|اهو|مش|لسه') },
-  { dialect: 'levantine', terms: boundedTerms('كيفك|شو|هيك|بدي|عم|كتير|يسلمو|منيح|هلق|هلؓ') },
+  { dialect: 'levantine', terms: boundedTerms('كيفك|شو|هيك|بدي|عم|كتير|يسلمو|منيح|هلق|هلا') },
 ];
 
 export function normalizeInput(input: string): string {
